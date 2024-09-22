@@ -1,18 +1,20 @@
-package com.glitch.plugins
+package com.glitch.securenotes.domain.plugins
 
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
 
 fun Application.configureSerialization() {
     install(ContentNegotiation) {
-        json()
-    }
-    routing {
-        get("/json/kotlinx-serialization") {
-                call.respond(mapOf("hello" to "world"))
+        json(
+            Json {
+                encodeDefaults = true
+                isLenient = true
+                ignoreUnknownKeys = true
             }
+        )
     }
 }

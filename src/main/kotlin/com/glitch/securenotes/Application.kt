@@ -1,6 +1,6 @@
-package com.glitch
+package com.glitch.securenotes
 
-import com.glitch.plugins.*
+import com.glitch.securenotes.domain.plugins.*
 import io.ktor.server.application.*
 
 fun main(args: Array<String>) {
@@ -8,8 +8,9 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    configureSockets()
+    configureKoin()
+    configureSessions()
+    configureAuthentication()
     configureSerialization()
-    configureSecurity()
     configureRouting()
 }

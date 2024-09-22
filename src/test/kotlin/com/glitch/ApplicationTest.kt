@@ -1,6 +1,6 @@
 package com.glitch
 
-import com.glitch.plugins.*
+import com.glitch.securenotes.domain.plugins.configureRouting
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
