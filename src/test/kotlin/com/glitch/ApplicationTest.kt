@@ -1,6 +1,6 @@
-package com.example
+package com.glitch
 
-import com.example.plugins.*
+import com.glitch.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
