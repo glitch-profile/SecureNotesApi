@@ -31,6 +31,21 @@ object AESEncryptor {
         }
     }
 
+    fun encrypt(byteArray: ByteArray): ByteArray {
+        try {
+            val secretKey = SecretKeySpec(secret!!.toByteArray(), "AES")
+            val ivParameterSpec = IvParameterSpec(iv!!.toByteArray())
+
+            val cipher = Cipher.getInstance(CIPHER_TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec)
+
+            val encryptedByteArray = cipher.doFinal(byteArray)
+            return encryptedByteArray
+        } catch (e: Exception) {
+            throw EncryptionException()
+        }
+    }
+
     fun decrypt(encryptedString: String): String {
         return try {
             val secretKey = SecretKeySpec(secret!!.toByteArray(), "AES")
@@ -43,6 +58,21 @@ object AESEncryptor {
 
             val decryptedString = cipher.doFinal(textToDecrypt)
             decryptedString.decodeToString()
+        } catch (e: Exception) {
+            throw EncryptionException()
+        }
+    }
+
+    fun decrypt(encrypted: ByteArray): ByteArray {
+        try {
+            val secretKey = SecretKeySpec(secret!!.toByteArray(), "AES")
+            val ivParameterSpec = IvParameterSpec(iv!!.toByteArray())
+
+            val cipher = Cipher.getInstance(CIPHER_TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
+
+            val decryptedByteArray = cipher.doFinal(encrypted)
+            return decryptedByteArray
         } catch (e: Exception) {
             throw EncryptionException()
         }
