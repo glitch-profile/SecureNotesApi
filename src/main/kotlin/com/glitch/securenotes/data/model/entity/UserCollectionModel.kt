@@ -1,4 +1,4 @@
-package com.glitch.securenotes.data.model
+package com.glitch.securenotes.data.model.entity
 
 import org.bson.codecs.pojo.annotations.BsonId
 
