@@ -8,23 +8,14 @@ import com.glitch.securenotes.data.model.entity.UserModel
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import io.ktor.server.config.*
-import io.ktor.server.sessions.*
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
-import java.io.File
-import java.nio.file.Paths
 
 class UsersDataSourceImpl(
     database: MongoDatabase
 ): UsersDataSource {
 
     private val users = database.getCollection<UserModel>("Users")
-    private val isPackedForExternal = ApplicationConfig(null).tryGetString("app.is_for_external").toBoolean()
-    private val sessionStorage = directorySessionStorage(
-        rootDir = if (isPackedForExternal) File("${Paths.get("")}/sessions")
-            else File("build/.sessions")
-    )
 
     override suspend fun getUserById(userId: String): UserModel {
         val filter = Filters.eq("_id", userId)

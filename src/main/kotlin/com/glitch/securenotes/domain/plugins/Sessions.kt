@@ -5,20 +5,18 @@ import io.ktor.server.application.*
 import io.ktor.server.config.*
 import io.ktor.server.sessions.*
 import io.ktor.util.*
-import java.io.File
-import java.nio.file.Paths
+import org.koin.ktor.ext.inject
 
 fun Application.configureSessions() {
     val authSecretKey = ApplicationConfig(null).tryGetString("app.security.auth_secret")!!
-    val isPackedForExternal = ApplicationConfig(null).tryGetString("app.is_for_external").toBoolean()
+    val sessionStorage by inject<SessionStorage>()
 
     install(Sessions) {
         val secret = hex(authSecretKey)
 
         header<AuthSession>(
             name = "auth_session",
-            storage = if (isPackedForExternal) directorySessionStorage(File("${Paths.get("")}/sessions"))
-                else directorySessionStorage(File("build/.sessions"))
+            storage = sessionStorage
         ) {
             transform(SessionTransportTransformerMessageAuthentication(secret))
         }
