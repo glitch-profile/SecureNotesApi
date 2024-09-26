@@ -10,7 +10,7 @@ data class UserModel(
     @BsonId
     val id: String = BsonId().toString(),
     val username: String,
-    val profileAvatar: FileModel,
+    val profileAvatar: FileModel?,
     val syncedEncryptionKey: String?,
     val creationDate: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
     val activeSessions: List<String> = emptyList()

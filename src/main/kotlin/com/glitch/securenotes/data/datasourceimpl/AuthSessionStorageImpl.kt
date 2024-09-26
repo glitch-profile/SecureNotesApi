@@ -30,7 +30,7 @@ class AuthSessionStorageImpl: AuthSessionStorage {
     }
 
     override fun isEncryptionValid(encryptedSessionId: String): Boolean {
-        val sessionId = encryptedSessionId.substringBefore('/')
+        val sessionId = encryptedSessionId.substringBefore('/', "")
         val decryptedSessionId = sessionIdEncryptor.transformRead(encryptedSessionId)
         return sessionId == decryptedSessionId
     }
