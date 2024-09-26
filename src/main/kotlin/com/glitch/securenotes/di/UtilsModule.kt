@@ -1,5 +1,7 @@
 package com.glitch.securenotes.di
 
+import com.glitch.securenotes.data.datasource.AuthSessionStorage
+import com.glitch.securenotes.data.datasourceimpl.AuthSessionStorageImpl
 import io.ktor.server.config.*
 import io.ktor.server.sessions.*
 import org.koin.dsl.module
@@ -11,7 +13,7 @@ private val sessionsStorageDir = if (isPackedForExternal) File("${Paths.get("")}
     else File("build/.sessions")
 
 val utilsModule = module {
-    single<SessionStorage> {
-        directorySessionStorage(sessionsStorageDir)
+    single<AuthSessionStorage> {
+        AuthSessionStorageImpl()
     }
 }
