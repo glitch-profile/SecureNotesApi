@@ -4,17 +4,21 @@ import io.ktor.websocket.*
 
 interface CodeAuthenticator {
 
-    fun generateRandomCode(): String
+    fun generateUserId(): String
+
+    fun isUserIdExists(userId: String): Boolean
+
+    fun generateUniqueCode(): String
 
     fun isCodeExists(code: String): Boolean
 
     suspend fun joinRoom(
-        code: String,
+        userId: String,
         webSocketConnection: WebSocketSession
     )
 
     suspend fun leaveRoom(
-        code: String
+        userId: String
     )
 
     suspend fun confirmCode(
@@ -23,12 +27,12 @@ interface CodeAuthenticator {
     )
 
     suspend fun updateCode(
-        oldCode: String,
+        userId: String,
         newCode: String
     )
 
-    suspend fun closeConnection(
-        code: String
+    suspend fun onConnectionExpire(
+        userId: String
     )
 
 }
