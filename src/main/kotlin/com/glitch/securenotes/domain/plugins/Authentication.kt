@@ -11,7 +11,7 @@ fun Application.configureAuthentication() {
     install(Authentication) {
         session<AuthSession>("guest") {
             validate { session ->
-                if (!session.isSessionConfirmed) session else null
+                if (session.userId == "0") session else null
             }
             challenge {
                 call.respond(HttpStatusCode.Unauthorized)
@@ -19,7 +19,7 @@ fun Application.configureAuthentication() {
         }
         session<AuthSession>("user") {
             validate { session ->
-                if (session.isSessionConfirmed && session.userId != null) session else null
+                if (session.userId != null && session.userId != "0") session else null
             }
             challenge {
                 call.respond(HttpStatusCode.Unauthorized)

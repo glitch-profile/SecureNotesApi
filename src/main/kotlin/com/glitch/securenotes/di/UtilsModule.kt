@@ -5,7 +5,6 @@ import com.glitch.securenotes.data.datasourceimpl.AuthSessionStorageImpl
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticatorImpl
 import io.ktor.server.config.*
-import io.ktor.server.sessions.*
 import org.koin.dsl.module
 import java.io.File
 import java.nio.file.Paths
