@@ -9,6 +9,12 @@ interface UsersDataSource {
 
     suspend fun getUsersById(userIds: List<String>): List<UserModel>
 
+    suspend fun addUser(
+        userName: String,
+        profileAvatar: FileModel? = null,
+        syncedEncryptionKey: String? = null
+    ): UserModel
+
     suspend fun deleteUserById(userId: String): Boolean
 
     suspend fun updateUserById(userId: String, newUserModel: UserModel): Boolean

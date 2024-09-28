@@ -4,9 +4,11 @@ import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasourceimpl.AuthSessionStorageImpl
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
+import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginData
+import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountData
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
@@ -136,13 +138,45 @@ fun Route.authRoutes(
         }
     }
 
-    authenticate("guest") {
-        get("$PATH/test") {
-            val session = call.sessions.get<AuthSession>() ?: kotlin.run {
-                call.respond("No session provided")
-                return@get
-            }
-            call.respond("${session.userId} - ${session.expireTimestamp}")
+    post("$PATH/signup") {
+        val newAccountData = call.receiveNullable<AuthIncomingNewAccountData>() ?: kotlin.run {
+            call.respond(HttpStatusCode.BadRequest)
+            return@post
+        }
+        val authDataFormatted = newAccountData.copy(
+            username = newAccountData.username.take(15),
+            login = newAccountData.login.take(15),
+            password = newAccountData.password.take(15)
+        )
+        val newUserModel = usersDataSource.addUser(authDataFormatted.login)
+        try {
+            userCredentialsDataSource.addCredentials(
+                userId = newUserModel.id,
+                login = authDataFormatted.login,
+                password = authDataFormatted.password
+            )
+            val sessionId = generateSessionId()
+            authSessionsManager.write(
+                id = sessionId,
+                AuthSession(
+                    userId = newUserModel.id,
+                    expireTimestamp = null
+                )
+            )
+            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
+            call.respond(
+                ApiResponseDto.Success(
+                    data = encryptedSessionId
+                )
+            )
+        } catch (e: LoginAlreadyInUseException) {
+            kotlin.runCatching { usersDataSource.deleteUserById(newUserModel.id) }
+            call.respond(
+                ApiResponseDto.Error<Unit>(
+                    apiErrorCode = ApiErrorCode.CREDENTIALS_ALREADY_IN_USE,
+                    message = "Credentials already in use"
+                )
+            )
         }
     }
 

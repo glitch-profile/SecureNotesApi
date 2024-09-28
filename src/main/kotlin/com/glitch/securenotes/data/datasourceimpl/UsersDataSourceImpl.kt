@@ -27,6 +27,20 @@ class UsersDataSourceImpl(
         return users.find(filter).toList()
     }
 
+    override suspend fun addUser(
+        userName: String,
+        profileAvatar: FileModel?,
+        syncedEncryptionKey: String?
+    ): UserModel {
+        val userModel = UserModel(
+            username = userName,
+            profileAvatar = profileAvatar,
+            syncedEncryptionKey = syncedEncryptionKey
+        )
+        val result = users.insertOne(userModel)
+        return userModel
+    }
+
     override suspend fun deleteUserById(userId: String): Boolean {
         val filter = Filters.eq("_id", userId)
         val result = users.deleteOne(filter)
