@@ -12,5 +12,6 @@ fun Application.module() {
     configureSessions()
     configureAuthentication()
     configureSerialization()
+    configureWebSockets()
     configureRouting()
 }

@@ -9,7 +9,8 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
-private const val CODE_DURATION_DEFAULT = 600_000L // 10 minutes in millis
+private const val CODE_DURATION_DEFAULT = 10000L // 10 minutes in millis
+//private const val CODE_DURATION_DEFAULT = 600_000L // 10 minutes in millis
 
 class CodeAuthenticatorImpl: CodeAuthenticator {
 
@@ -29,7 +30,11 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
         do {
             code = ""
             totalTries += 1
-            val codeLength = 4 + ( totalTries / 20 )
+            val codeLength = when (totalTries) {
+                in 1..20 -> 4
+                in 21..60 -> 5
+                else -> 6
+            }
             repeat(codeLength) {
                 val randomChar = availableChars[Random.nextInt(0, availableChars.length)]
                 code += randomChar
@@ -46,7 +51,7 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
         var userId: String
         do {
             userId = UUID.randomUUID().toString()
-        } while (!isUserIdExists(userId))
+        } while (isUserIdExists(userId))
         return userId
     }
 
@@ -61,6 +66,7 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
             code = code,
             socketSession = webSocketConnection
         )
+        println(connections.entries)
         connectionExpireJobs[userId] = expireConnectionJob(userId)
         val codeCreatedEvent = AuthSocketEventData(
             eventCode = CodeAuthEvent.CODE_GENERATED,
@@ -74,7 +80,11 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
     }
 
     override suspend fun leaveRoom(userId: String) {
-        connections[userId]?.socketSession?.close()
+        connections[userId]?.socketSession?.let { webSocketSession ->
+            if (webSocketSession.isActive) {
+                webSocketSession.close()
+            }
+        }
         connections.remove(userId)
         connectionExpireJobs[userId]?.cancel()
         connectionExpireJobs.remove(userId)
@@ -92,7 +102,8 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
                     jsonSerializer.encodeToString(connectionExpireEvent)
                 )
             )
-            leaveRoom(userId)
+            socketSession.close()
+            // this wil automatically call leaveRoom because of finally block in authRoutes
         }
     }
 

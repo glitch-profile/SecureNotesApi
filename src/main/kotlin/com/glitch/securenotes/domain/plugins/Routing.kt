@@ -1,16 +1,28 @@
 package com.glitch.securenotes.domain.plugins
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
+import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
+import com.glitch.securenotes.data.datasource.UsersDataSource
+import com.glitch.securenotes.domain.routes.authRoutes
+import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.koin.ktor.ext.inject
 import java.io.File
 
 fun Application.configureRouting() {
+    val userCredentialsDataSource by inject<UserCredentialsDataSource>()
+    val usersDataSource by inject<UsersDataSource>()
+    val codeAuthenticator by inject<CodeAuthenticator>()
+
     routing {
+
+        authRoutes(
+            userCredentialsDataSource, usersDataSource, codeAuthenticator
+        )
 
         // should use this instead of static resources
         get("test") {
