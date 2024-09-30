@@ -19,7 +19,7 @@ fun Application.configureAuthentication() {
         }
         session<AuthSession>("user") {
             validate { session ->
-                if (session.userId != null && session.userId != "0") session else null
+                if (session.userId != "0") session else null
             }
             challenge {
                 call.respond(HttpStatusCode.Unauthorized)

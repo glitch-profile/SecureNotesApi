@@ -7,11 +7,13 @@ import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
+import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationData
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginData
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountData
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
+import com.glitch.securenotes.domain.utils.codeauth.CodeNotFoundException
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
@@ -182,6 +184,44 @@ fun Route.authRoutes(
 
     authenticate("user") {
         post("$PATH/confirm-code") {
+            try {
+                val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationData>() ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
+                }
+                val session = call.sessions.get<AuthSession>()!!
+                usersDataSource.getUserById(session.userId)
+                val newSessionId = generateSessionId()
+                val newSession = AuthSession(
+                    userId = session.userId,
+                    expireTimestamp = null
+                )
+                authSessionsManager.write(
+                    id = newSessionId,
+                    authData = newSession
+                )
+                codeAuthenticator.confirmCode(
+                    code = codeAuthData.code,
+                    sessionIdToAssign = newSessionId
+                )
+                call.respond(
+                    ApiResponseDto.Success(null)
+                )
+            } catch (e: UserNotFoundException) {
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                        message = "User with this id not found"
+                    )
+                )
+            } catch (e: CodeNotFoundException) {
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.AUTH_CODE_NOT_FOUND,
+                        message = "This code not found or expired"
+                    )
+                )
+            }
 
         }
     }
