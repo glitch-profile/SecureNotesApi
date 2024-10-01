@@ -27,11 +27,12 @@ class FileManagerImpl: FileManager {
     override fun uploadFile(fileName: String, fileBytes: ByteArray, fileNameSuffix: String): String {
         val fileData = File(fileName)
         if (fileData.extension.isEmpty()) throw UnknownExtensionException()
-        val filePath = "${getResourcePath()}/${generateDirectoryPath()}$fileNameSuffix.${fileData.extension}"
-        File(filePath).outputStream().use {
+        val file = File("${getResourcePath()}/${generateDirectoryPath()}$fileNameSuffix.${fileData.extension}")
+        file.parentFile.mkdirs()
+        file.outputStream().use {
             it.write(fileBytes)
         }
-        return filePath
+        return file.path
     }
 
     override fun updateFileContent(localPath: String, newByteArray: ByteArray) {
