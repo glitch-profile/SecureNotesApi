@@ -4,6 +4,8 @@ import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasourceimpl.AuthSessionStorageImpl
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticatorImpl
+import com.glitch.securenotes.domain.utils.filemanager.FileManager
+import com.glitch.securenotes.domain.utils.filemanager.FileManagerImpl
 import org.koin.dsl.module
 
 val utilsModule = module {
@@ -12,5 +14,8 @@ val utilsModule = module {
     }
     single<CodeAuthenticator> {
         CodeAuthenticatorImpl()
+    }
+    single<FileManager> {
+        FileManagerImpl()
     }
 }
