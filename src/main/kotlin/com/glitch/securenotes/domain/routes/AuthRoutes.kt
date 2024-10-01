@@ -28,8 +28,6 @@ import org.koin.ktor.ext.inject
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-private const val PATH = "/api/V1/auth"
-
 fun Route.authRoutes(
     userCredentialsDataSource: UserCredentialsDataSource,
     usersDataSource: UsersDataSource,
@@ -38,192 +36,196 @@ fun Route.authRoutes(
 
     val authSessionsManager by inject<AuthSessionStorageImpl>()
 
-    webSocket("$PATH/otp-socket") {
-        val userId = codeAuthenticator.generateUserId()
-        try {
-            codeAuthenticator.joinRoom(userId = userId, webSocketConnection = this)
-            incoming.consumeEach { frame ->
-                if (frame is Frame.Text) {
-                    try {
-                        val command = frame.readText()
-                        when (command) {
-                            "update-code" -> {
-                                val newCode = codeAuthenticator.generateUniqueCode()
-                                codeAuthenticator.updateCode(
-                                    userId = userId,
-                                    newCode = newCode
-                                )
+    route("api/V1/auth") {
+
+        webSocket("/otp-socket") {
+            val userId = codeAuthenticator.generateUserId()
+            try {
+                codeAuthenticator.joinRoom(userId = userId, webSocketConnection = this)
+                incoming.consumeEach { frame ->
+                    if (frame is Frame.Text) {
+                        try {
+                            val command = frame.readText()
+                            when (command) {
+                                "update-code" -> {
+                                    val newCode = codeAuthenticator.generateUniqueCode()
+                                    codeAuthenticator.updateCode(
+                                        userId = userId,
+                                        newCode = newCode
+                                    )
+                                }
                             }
+                        } catch (e: Exception) {
+                            println("AUTH ROUTES - CODE SOCKET - ERROR - ${e.stackTrace}")
                         }
-                    } catch (e: Exception) {
-                        println("AUTH ROUTES - CODE SOCKET - ERROR - ${e.stackTrace}")
                     }
                 }
+            } catch (e: Exception) {
+                e.message
+                call.respond(HttpStatusCode.Conflict)
+            } finally {
+                codeAuthenticator.leaveRoom(userId)
             }
-        } catch (e: Exception) {
-            e.message
-            call.respond(HttpStatusCode.Conflict)
-        } finally {
-            codeAuthenticator.leaveRoom(userId)
         }
-    }
 
-    post("$PATH/guest") {
-        try {
-            val sessionId = generateSessionId()
-            authSessionsManager.write(
-                sessionId,
-                AuthSession(
-                    userId = "0",
-                    expireTimestamp = null
-                )
-            )
-            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
-            call.respond(
-                ApiResponseDto.Success(
-                    data = encryptedSessionId
-                )
-            )
-        } catch (e: Exception) {
-            call.respond(
-                ApiResponseDto.Error<Unit>(
-                    apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
-                    message = e.message ?: "Unable to create guest session"
-                )
-            )
-        }
-    }
-
-    post("$PATH/login") {
-        try {
-            val authData = call.receiveNullable<AuthIncomingLoginData>() ?: kotlin.run {
-                call.respond(HttpStatusCode.BadRequest)
-                return@post
-            }
-            val userId = userCredentialsDataSource.auth(
-                login = authData.login.take(15),
-                password = authData.password.take(15)
-            )
-            val user = usersDataSource.getUserById(userId)
-            // do some check here
-            val sessionId = generateSessionId()
-            authSessionsManager.write(
-                id = sessionId,
-                authData = AuthSession(
-                    userId = user.id,
-                    expireTimestamp = OffsetDateTime.now(ZoneId.systemDefault())
-                        .plusMonths(6L)
-                        .toEpochSecond()
-                )
-            )
-            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
-            call.respond(
-                ApiResponseDto.Success(
-                    data = encryptedSessionId
-                )
-            )
-        } catch (e: CredentialsNotFoundException) {
-            call.respond(
-                ApiResponseDto.Error<Unit>(
-                    apiErrorCode = ApiErrorCode.AUTH_DATA_INCORRECT,
-                    message = "Credentials not found"
-                )
-            )
-        } catch (e: UserNotFoundException) {
-            e.printStackTrace()
-            call.respond(
-                ApiResponseDto.Error<Unit>(
-                    apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                    message = "User not found"
-                )
-            )
-        }
-    }
-
-    post("$PATH/signup") {
-        val newAccountData = call.receiveNullable<AuthIncomingNewAccountData>() ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@post
-        }
-        val authDataFormatted = newAccountData.copy(
-            username = newAccountData.username.take(15),
-            login = newAccountData.login.take(15),
-            password = newAccountData.password.take(15)
-        )
-        val newUserModel = usersDataSource.addUser(authDataFormatted.login)
-        try {
-            userCredentialsDataSource.addCredentials(
-                userId = newUserModel.id,
-                login = authDataFormatted.login,
-                password = authDataFormatted.password
-            )
-            val sessionId = generateSessionId()
-            authSessionsManager.write(
-                id = sessionId,
-                AuthSession(
-                    userId = newUserModel.id,
-                    expireTimestamp = null
-                )
-            )
-            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
-            call.respond(
-                ApiResponseDto.Success(
-                    data = encryptedSessionId
-                )
-            )
-        } catch (e: LoginAlreadyInUseException) {
-            kotlin.runCatching { usersDataSource.deleteUserById(newUserModel.id) }
-            call.respond(
-                ApiResponseDto.Error<Unit>(
-                    apiErrorCode = ApiErrorCode.CREDENTIALS_ALREADY_IN_USE,
-                    message = "Credentials already in use"
-                )
-            )
-        }
-    }
-
-    authenticate("user") {
-        post("$PATH/confirm-code") {
+        post("/guest") {
             try {
-                val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationData>() ?: kotlin.run {
+                val sessionId = generateSessionId()
+                authSessionsManager.write(
+                    sessionId,
+                    AuthSession(
+                        userId = "0",
+                        expireTimestamp = null
+                    )
+                )
+                val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
+                call.respond(
+                    ApiResponseDto.Success(
+                        data = encryptedSessionId
+                    )
+                )
+            } catch (e: Exception) {
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
+                        message = e.message ?: "Unable to create guest session"
+                    )
+                )
+            }
+        }
+
+        post("/login") {
+            try {
+                val authData = call.receiveNullable<AuthIncomingLoginData>() ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@post
                 }
-                val session = call.sessions.get<AuthSession>()!!
-                usersDataSource.getUserById(session.userId)
-                val newSessionId = generateSessionId()
-                val newSession = AuthSession(
-                    userId = session.userId,
-                    expireTimestamp = null
+                val userId = userCredentialsDataSource.auth(
+                    login = authData.login.take(15),
+                    password = authData.password.take(15)
                 )
+                val user = usersDataSource.getUserById(userId)
+                // do some check here
+                val sessionId = generateSessionId()
                 authSessionsManager.write(
-                    id = newSessionId,
-                    authData = newSession
+                    id = sessionId,
+                    authData = AuthSession(
+                        userId = user.id,
+                        expireTimestamp = OffsetDateTime.now(ZoneId.systemDefault())
+                            .plusMonths(6L)
+                            .toEpochSecond()
+                    )
                 )
-                codeAuthenticator.confirmCode(
-                    code = codeAuthData.code,
-                    sessionIdToAssign = newSessionId
-                )
+                val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
-                    ApiResponseDto.Success(null)
+                    ApiResponseDto.Success(
+                        data = encryptedSessionId
+                    )
+                )
+            } catch (e: CredentialsNotFoundException) {
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.AUTH_DATA_INCORRECT,
+                        message = "Credentials not found"
+                    )
                 )
             } catch (e: UserNotFoundException) {
+                e.printStackTrace()
                 call.respond(
                     ApiResponseDto.Error<Unit>(
                         apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                        message = "User with this id not found"
-                    )
-                )
-            } catch (e: CodeNotFoundException) {
-                call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.AUTH_CODE_NOT_FOUND,
-                        message = "This code not found or expired"
+                        message = "User not found"
                     )
                 )
             }
-
         }
+
+        post("/signup") {
+            val newAccountData = call.receiveNullable<AuthIncomingNewAccountData>() ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+            val authDataFormatted = newAccountData.copy(
+                username = newAccountData.username.take(15),
+                login = newAccountData.login.take(15),
+                password = newAccountData.password.take(15)
+            )
+            val newUserModel = usersDataSource.addUser(authDataFormatted.login)
+            try {
+                userCredentialsDataSource.addCredentials(
+                    userId = newUserModel.id,
+                    login = authDataFormatted.login,
+                    password = authDataFormatted.password
+                )
+                val sessionId = generateSessionId()
+                authSessionsManager.write(
+                    id = sessionId,
+                    AuthSession(
+                        userId = newUserModel.id,
+                        expireTimestamp = null
+                    )
+                )
+                val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
+                call.respond(
+                    ApiResponseDto.Success(
+                        data = encryptedSessionId
+                    )
+                )
+            } catch (e: LoginAlreadyInUseException) {
+                kotlin.runCatching { usersDataSource.deleteUserById(newUserModel.id) }
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.CREDENTIALS_ALREADY_IN_USE,
+                        message = "Credentials already in use"
+                    )
+                )
+            }
+        }
+
+        authenticate("user") {
+            post("/confirm-code") {
+                try {
+                    val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationData>() ?: kotlin.run {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@post
+                    }
+                    val session = call.sessions.get<AuthSession>()!!
+                    usersDataSource.getUserById(session.userId)
+                    val newSessionId = generateSessionId()
+                    val newSession = AuthSession(
+                        userId = session.userId,
+                        expireTimestamp = null
+                    )
+                    authSessionsManager.write(
+                        id = newSessionId,
+                        authData = newSession
+                    )
+                    codeAuthenticator.confirmCode(
+                        code = codeAuthData.code,
+                        sessionIdToAssign = newSessionId
+                    )
+                    call.respond(
+                        ApiResponseDto.Success(null)
+                    )
+                } catch (e: UserNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "User with this id not found"
+                        )
+                    )
+                } catch (e: CodeNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.AUTH_CODE_NOT_FOUND,
+                            message = "This code not found or expired"
+                        )
+                    )
+                }
+
+            }
+        }
+
     }
 
 }

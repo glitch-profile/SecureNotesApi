@@ -10,6 +10,9 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.util.cio.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.delay
 import org.koin.ktor.ext.inject
 import java.io.File
 
@@ -26,17 +29,20 @@ fun Application.configureRouting() {
 
         // should use this instead of static resources
         get("test") {
-            val file = File("F:/test/123.png")
+            val file = File("D:/test/123.png")
             call.response.header(
                 HttpHeaders.ContentDisposition,
-                ContentDisposition.Inline.withParameter(ContentDisposition.Parameters.FileName, "1234.png").toString()
+                ContentDisposition.Inline.withParameter(ContentDisposition.Parameters.FileName, "test.jpg").toString()
             )
-            call.respondFile(file)
+            val byteArray = file.inputStream().use {
+                it.readBytes()
+            }
+            call.respondBytes(byteArray)
         }
         get("test2") {
             val hasAuthority = call.request.header("user_id") == "12345"
             if (!hasAuthority) call.respond(HttpStatusCode.Forbidden)
-            val file = File("F:/test/123.png")
+            val file = File("D:/test/123.jpg")
             val byteArray = file.inputStream().use {
                 it.readBytes()
             }
@@ -58,6 +64,9 @@ fun Application.configureRouting() {
             )
             call.respondBytes(decryptedBytes)
         }
-
+        get("files/{filePath...}") {
+            val imagePath = call.pathParameters.getAll("filePath")!!.joinToString("/")
+            call.respondText(imagePath)
+        }
     }
 }
