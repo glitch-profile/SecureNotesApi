@@ -8,6 +8,8 @@ import io.ktor.server.sessions.*
 import io.ktor.util.*
 import java.io.File
 import java.nio.file.Paths
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 class AuthSessionStorageImpl: AuthSessionStorage {
     private val isPackedForExternal = ApplicationConfig(null).tryGetString("app.is_for_external").toBoolean()
@@ -35,21 +37,52 @@ class AuthSessionStorageImpl: AuthSessionStorage {
         return sessionId == decryptedSessionId
     }
 
-    override suspend fun get(id: String): AuthSession {
-        val sessionData = sessionStorage.read(id)
+    override suspend fun createSession(
+        sessionId: String,
+        userId: String,
+        platformName: String,
+        appVersion: String,
+        maxDurationInHours: Int?
+    ) {
+        val authSession = AuthSession(
+            userId = userId,
+            platformName = platformName,
+            appVersionString = appVersion,
+            durationInHours = maxDurationInHours,
+            lastActivityTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+        )
+        val serializedAuthData = sessionSerializer.serialize(authSession)
+        sessionStorage.write(
+            id = sessionId,
+            value = serializedAuthData
+        )
+    }
+
+    override suspend fun get(sessionId: String): AuthSession {
+        val sessionData = sessionStorage.read(sessionId)
         if (sessionData.isEmpty()) throw SessionNotFoundException()
         return sessionSerializer.deserialize(sessionData)
     }
 
-    override suspend fun delete(id: String) {
-        sessionStorage.invalidate(id)
+    override suspend fun updateLastActivity(sessionId: String, lastActivityTimestamp: Long) {
+        val session = get(sessionId)
+            .copy(lastActivityTimestamp = lastActivityTimestamp)
+        sessionStorage.write(
+            id = sessionId,
+            value = sessionSerializer.serialize(session)
+        )
     }
 
-    override suspend fun write(id: String, authData: AuthSession) {
-        val serializedAuthData = sessionSerializer.serialize(authData)
+    override suspend fun updateMaxSessionDuration(sessionId: String, maxDurationInHours: Int?) {
+        val session = get(sessionId)
+            .copy(durationInHours = maxDurationInHours)
         sessionStorage.write(
-            id = id,
-            value = serializedAuthData
+            id = sessionId,
+            value = sessionSerializer.serialize(session)
         )
+    }
+
+    override suspend fun delete(sessionId: String) {
+        sessionStorage.invalidate(sessionId)
     }
 }
