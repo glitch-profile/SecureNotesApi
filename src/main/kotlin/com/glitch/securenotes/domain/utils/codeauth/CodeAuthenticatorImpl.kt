@@ -1,5 +1,6 @@
 package com.glitch.securenotes.domain.utils.codeauth
 
+import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.model.dto.auth.AuthSocketEventData
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
@@ -9,8 +10,8 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
-private const val CODE_DURATION_DEFAULT = 10000L // 10 minutes in millis
-//private const val CODE_DURATION_DEFAULT = 600_000L // 10 minutes in millis
+//private const val CODE_DURATION_DEFAULT = 10000L // 10 minutes in millis
+private const val CODE_DURATION_DEFAULT = 600_000L // 10 minutes in millis
 
 class CodeAuthenticatorImpl: CodeAuthenticator {
 
@@ -39,12 +40,12 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
                 val randomChar = availableChars[Random.nextInt(0, availableChars.length)]
                 code += randomChar
             }
-        } while (!isCodeExists(code))
+        } while (isCodeExists(code))
         return code
     }
 
     override fun isCodeExists(code: String): Boolean {
-        return connections.none { it.value.code == code }
+        return connections.any { it.value.code == code }
     }
 
     override fun generateUserId(): String {
@@ -59,14 +60,20 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
         return connections.containsKey(userId)
     }
 
-    override suspend fun joinRoom(userId: String, webSocketConnection: WebSocketSession) {
+    override suspend fun joinRoom(
+        userId: String,
+        webSocketConnection: WebSocketSession,
+        platformString: String,
+        appVersionString: String
+    ) {
         if (isUserIdExists(userId)) throw UserAlreadyExistsException()
         val code = generateUniqueCode()
         connections[userId] = CodeAuthMember(
             code = code,
+            platform = platformString,
+            appVersion = appVersionString,
             socketSession = webSocketConnection
         )
-        println(connections.entries)
         connectionExpireJobs[userId] = expireConnectionJob(userId)
         val codeCreatedEvent = AuthSocketEventData(
             eventCode = CodeAuthEvent.CODE_GENERATED,
@@ -107,18 +114,21 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
         }
     }
 
-    override suspend fun confirmCode(code: String, sessionIdToAssign: String) {
-        val codeAuthMember = connections.filterValues { it.code == code }.entries.firstOrNull() ?: kotlin.run {
-            throw CodeNotFoundException()
-        }
+    override suspend fun getAuthMemberForCode(code: String): CodeAuthMember {
+        val codeAuthMember = connections.filterValues { it.code == code }.entries
+            .firstOrNull() ?: throw CodeNotFoundException()
+        return codeAuthMember.value
+    }
+
+    override suspend fun confirmCode(code: String, sessionId: String) {
+        val codeAuthMember = connections.filterValues { it.code == code }.entries
+            .firstOrNull() ?: throw CodeNotFoundException()
         val socketSession = codeAuthMember.value.socketSession
         val codeConfirmEvent = AuthSocketEventData(
             eventCode = CodeAuthEvent.CODE_CONFIRMED,
-            data = sessionIdToAssign
+            data = sessionId
         )
-        socketSession.send(
-            Frame.Text(jsonSerializer.encodeToString(codeConfirmEvent))
-        )
+        socketSession.send(Frame.Text(jsonSerializer.encodeToString(codeConfirmEvent)))
         leaveRoom(codeAuthMember.key)
     }
 

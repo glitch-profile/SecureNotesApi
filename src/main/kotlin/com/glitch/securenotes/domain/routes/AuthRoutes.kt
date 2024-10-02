@@ -1,8 +1,8 @@
 package com.glitch.securenotes.domain.routes
 
+import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
-import com.glitch.securenotes.data.datasourceimpl.AuthSessionStorageImpl
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
@@ -23,25 +23,49 @@ import io.ktor.server.sessions.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.delay
-import org.koin.ktor.ext.inject
-import java.time.OffsetDateTime
-import java.time.ZoneId
 
 fun Route.authRoutes(
     userCredentialsDataSource: UserCredentialsDataSource,
     usersDataSource: UsersDataSource,
-    codeAuthenticator: CodeAuthenticator
+    codeAuthenticator: CodeAuthenticator,
+    authSessionsManager: AuthSessionStorage
 ) {
-
-    val authSessionsManager by inject<AuthSessionStorageImpl>()
 
     route("api/V1/auth") {
 
-        webSocket("/otp-socket") {
+        fun getUserBrowserData(rawBrowserData: String): String {
+            val rawBrowserDataExtractorRegex = Regex("[\"]([^\"]+)[\"'];v=[\"](\\d\\w+)[\"]")
+            val lastIndexOfFirstPath = rawBrowserData.indexOfFirst { it == ',' }
+            return if (lastIndexOfFirstPath == -1) {
+                if (rawBrowserDataExtractorRegex.matches(rawBrowserData)) {
+                    val findResult = rawBrowserDataExtractorRegex.find(rawBrowserData)
+                    "${findResult!!.groups[1]!!.value} ${findResult.groups[2]!!.value}"
+                } else rawBrowserData
+            } else {
+                val trimmedBrowserData = rawBrowserData.take(lastIndexOfFirstPath)
+                val findResult = rawBrowserDataExtractorRegex.find(trimmedBrowserData)
+                "${findResult!!.groups[1]!!.value} ${findResult.groups[2]!!.value}"
+            }
+        }
+
+        webSocket(
+            path = "/otp-socket"
+        ) {
+            val platform = call.request.queryParameters["platform"]
+            val appAgent = call.request.queryParameters["agent"]
+            if (platform == null || appAgent == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@webSocket
+            }
+            println(appAgent)
             val userId = codeAuthenticator.generateUserId()
             try {
-                codeAuthenticator.joinRoom(userId = userId, webSocketConnection = this)
+                codeAuthenticator.joinRoom(
+                    userId = userId,
+                    webSocketConnection = this,
+                    platformString = platform,
+                    appVersionString = appAgent
+                )
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text) {
                         try {
@@ -63,20 +87,35 @@ fun Route.authRoutes(
             } catch (e: Exception) {
                 e.message
                 call.respond(HttpStatusCode.Conflict)
+                println(e)
             } finally {
                 codeAuthenticator.leaveRoom(userId)
+                println("user leave")
             }
         }
 
         post("/guest") {
             try {
+                val platform = call.request.queryParameters["platform"] ?: kotlin.run {
+                    call.request.header("sec-ch-ua-platform")
+                }
+                val agent = call.request.queryParameters["agent"] ?: kotlin.run {
+                    call.request.header("sec-ch-ua")
+                }
+                if (platform == null || agent == null) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
+                }
+
+                val formattedPlatformName = platform.filterNot { it == '"' }
+                val formattedAgent = getUserBrowserData(agent)
                 val sessionId = generateSessionId()
-                authSessionsManager.write(
-                    sessionId,
-                    AuthSession(
-                        userId = "0",
-                        expireTimestamp = null
-                    )
+                authSessionsManager.createSession(
+                    sessionId = sessionId,
+                    userId = "0",
+                    platformName = formattedPlatformName,
+                    appVersion = formattedAgent,
+                    maxDurationInHours = null
                 )
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
@@ -100,6 +139,19 @@ fun Route.authRoutes(
                     call.respond(HttpStatusCode.BadRequest)
                     return@post
                 }
+                val platform = call.request.queryParameters["platform"] ?: kotlin.run {
+                    call.request.header("sec-ch-ua-platform")
+                }
+                val agent = call.request.queryParameters["agent"] ?: kotlin.run {
+                    call.request.header("sec-ch-ua")
+                }
+                if (platform == null || agent == null) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
+                }
+
+                val formattedPlatformName = platform.filterNot { it == '"' }
+                val formattedAgent = getUserBrowserData(agent)
                 val userId = userCredentialsDataSource.auth(
                     login = authData.login.take(15),
                     password = authData.password.take(15)
@@ -107,14 +159,16 @@ fun Route.authRoutes(
                 val user = usersDataSource.getUserById(userId)
                 // do some check here
                 val sessionId = generateSessionId()
-                authSessionsManager.write(
-                    id = sessionId,
-                    authData = AuthSession(
-                        userId = user.id,
-                        expireTimestamp = OffsetDateTime.now(ZoneId.systemDefault())
-                            .plusMonths(6L)
-                            .toEpochSecond()
-                    )
+                authSessionsManager.createSession(
+                    sessionId = sessionId,
+                    userId = user.id,
+                    platformName = formattedPlatformName,
+                    appVersion = formattedAgent,
+                    maxDurationInHours = null
+                )
+                usersDataSource.addActiveSessionId(
+                    userId = user.id,
+                    sessionId = sessionId
                 )
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
@@ -145,6 +199,19 @@ fun Route.authRoutes(
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
+            val platform = call.request.queryParameters["platform"] ?: kotlin.run {
+                call.request.header("sec-ch-ua-platform")
+            }
+            val agent = call.request.queryParameters["agent"] ?: kotlin.run {
+                call.request.header("sec-ch-ua")
+            }
+            if (platform == null || agent == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+
+            val formattedPlatformName = platform.filterNot { it == '"' }
+            val formattedAgent = getUserBrowserData(agent)
             val authDataFormatted = newAccountData.copy(
                 username = newAccountData.username.take(15),
                 login = newAccountData.login.take(15),
@@ -158,12 +225,13 @@ fun Route.authRoutes(
                     password = authDataFormatted.password
                 )
                 val sessionId = generateSessionId()
-                authSessionsManager.write(
-                    id = sessionId,
-                    AuthSession(
-                        userId = newUserModel.id,
-                        expireTimestamp = null
-                    )
+                authSessionsManager.createSession(
+                    sessionId = sessionId,
+                    userId = newUserModel.id,
+                    platformName = formattedPlatformName,
+                    appVersion = formattedAgent,
+                    maxDurationInHours = null
+
                 )
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
@@ -190,19 +258,19 @@ fun Route.authRoutes(
                         return@post
                     }
                     val session = call.sessions.get<AuthSession>()!!
-                    usersDataSource.getUserById(session.userId)
+                    val userInfo = usersDataSource.getUserById(session.userId)
                     val newSessionId = generateSessionId()
-                    val newSession = AuthSession(
-                        userId = session.userId,
-                        expireTimestamp = null
-                    )
-                    authSessionsManager.write(
-                        id = newSessionId,
-                        authData = newSession
+                    val codeMemberAuthData = codeAuthenticator.getAuthMemberForCode(codeAuthData.code)
+                    authSessionsManager.createSession(
+                        sessionId = newSessionId,
+                        userId = userInfo.id,
+                        platformName = codeMemberAuthData.platform,
+                        appVersion = codeMemberAuthData.appVersion,
+                        maxDurationInHours = codeAuthData.maxDurationHours
                     )
                     codeAuthenticator.confirmCode(
                         code = codeAuthData.code,
-                        sessionIdToAssign = newSessionId
+                        sessionId = newSessionId
                     )
                     call.respond(
                         ApiResponseDto.Success(null)

@@ -4,5 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class AuthIncomingCodeConfirmationData(
-    val code: String
+    val code: String,
+    val maxDurationHours: Int?
 )

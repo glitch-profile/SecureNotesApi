@@ -14,16 +14,22 @@ interface CodeAuthenticator {
 
     suspend fun joinRoom(
         userId: String,
-        webSocketConnection: WebSocketSession
+        webSocketConnection: WebSocketSession,
+        platformString: String,
+        appVersionString: String
     )
 
     suspend fun leaveRoom(
         userId: String
     )
 
+    suspend fun getAuthMemberForCode(
+        code: String
+    ): CodeAuthMember
+
     suspend fun confirmCode(
         code: String,
-        sessionIdToAssign: String
+        sessionId: String
     )
 
     suspend fun updateCode(
