@@ -10,6 +10,7 @@ import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationData
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginData
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountData
+import com.glitch.securenotes.data.model.dto.auth.AuthOutgoingInfo
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
@@ -85,12 +86,9 @@ fun Route.authRoutes(
                     }
                 }
             } catch (e: Exception) {
-                e.message
                 call.respond(HttpStatusCode.Conflict)
-                println(e)
             } finally {
                 codeAuthenticator.leaveRoom(userId)
-                println("user leave")
             }
         }
 
@@ -120,7 +118,10 @@ fun Route.authRoutes(
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
                     ApiResponseDto.Success(
-                        data = encryptedSessionId
+                        data = AuthOutgoingInfo(
+                            sessionId = encryptedSessionId,
+                            userId = "0"
+                        )
                     )
                 )
             } catch (e: Exception) {
@@ -173,7 +174,10 @@ fun Route.authRoutes(
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
                     ApiResponseDto.Success(
-                        data = encryptedSessionId
+                        data = AuthOutgoingInfo(
+                            sessionId = encryptedSessionId,
+                            userId = user.id
+                        )
                     )
                 )
             } catch (e: CredentialsNotFoundException) {
@@ -236,7 +240,10 @@ fun Route.authRoutes(
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
                     ApiResponseDto.Success(
-                        data = encryptedSessionId
+                        data = AuthOutgoingInfo(
+                            sessionId = encryptedSessionId,
+                            userId = newUserModel.id
+                        )
                     )
                 )
             } catch (e: LoginAlreadyInUseException) {
@@ -251,6 +258,7 @@ fun Route.authRoutes(
         }
 
         authenticate("user") {
+
             post("/confirm-code") {
                 try {
                     val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationData>() ?: kotlin.run {
@@ -290,8 +298,21 @@ fun Route.authRoutes(
                         )
                     )
                 }
-
             }
+
+            get("/auth-info") {
+                val session = call.sessions.get<AuthSession>()!!
+                val sessionId = call.sessionId<AuthSession>()!!
+                call.respond(
+                    ApiResponseDto.Success(
+                        data = AuthOutgoingInfo(
+                            sessionId = sessionId,
+                            userId = session.userId
+                        )
+                    )
+                )
+            }
+
         }
 
     }
