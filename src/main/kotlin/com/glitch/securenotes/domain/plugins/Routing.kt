@@ -5,6 +5,8 @@ import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.domain.routes.authRoutes
+import com.glitch.securenotes.domain.routes.userRoutes
+import com.glitch.securenotes.domain.routes.utilRoutes
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -22,27 +24,14 @@ fun Application.configureRouting() {
 
     routing {
 
-        fun getUserBrowserData(rawBrowserData: String): String {
-            val rawBrowserDataExtractorRegex = Regex("[\"]([^\"]+)[\"'];v=[\"](\\d\\w+)[\"]")
-            val lastIndexOfFirstPath = rawBrowserData.indexOfFirst { it == ',' }
-            return if (lastIndexOfFirstPath == -1) {
-                if (rawBrowserDataExtractorRegex.matches(rawBrowserData)) {
-                    val findResult = rawBrowserDataExtractorRegex.find(rawBrowserData)
-                    "${findResult!!.groups[1]!!.value} ${findResult.groups[2]!!.value}"
-                } else rawBrowserData
-            } else {
-                val trimmedBrowserData = rawBrowserData.take(lastIndexOfFirstPath)
-                val findResult = rawBrowserDataExtractorRegex.find(trimmedBrowserData)
-                "${findResult!!.groups[1]!!.value} ${findResult.groups[2]!!.value}"
-            }
-        }
-
         authRoutes(
             userCredentialsDataSource,
             usersDataSource,
             codeAuthenticator,
             authSessionManager
         )
+        userRoutes()
+        utilRoutes()
 
         // should use this instead of static resources
         get("test") {
@@ -80,23 +69,6 @@ fun Application.configureRouting() {
                 ContentType.defaultForFile(file).toString()
             )
             call.respondBytes(decryptedBytes)
-        }
-        get("files/{filePath...}") {
-            val imagePath = call.pathParameters.getAll("filePath")!!.joinToString("/")
-            call.respondText(imagePath)
-            val platformName = call.request.header("sec-ch-ua-platform") ?: kotlin.run {
-                call.respond(HttpStatusCode.BadRequest)
-                return@get
-            }
-            val userBrowser = call.request.header("sec-ch-ua") ?: kotlin.run {
-                call.respond(HttpStatusCode.BadRequest)
-                return@get
-            }
-
-            val formattedPlatformName = platformName.filterNot { it == '"' }
-            val formattedUserBrowser = getUserBrowserData(userBrowser)
-            println(platformName)
-            println(formattedUserBrowser)
         }
     }
 }
