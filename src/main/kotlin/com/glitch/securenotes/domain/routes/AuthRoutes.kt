@@ -7,10 +7,10 @@ import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
-import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationData
-import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginData
-import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountData
-import com.glitch.securenotes.data.model.dto.auth.AuthOutgoingInfo
+import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationDto
+import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginDto
+import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountDto
+import com.glitch.securenotes.data.model.dto.auth.AuthOutgoingInfoDto
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
@@ -118,7 +118,7 @@ fun Route.authRoutes(
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
                     ApiResponseDto.Success(
-                        data = AuthOutgoingInfo(
+                        data = AuthOutgoingInfoDto(
                             sessionId = encryptedSessionId,
                             userId = "0"
                         )
@@ -136,7 +136,7 @@ fun Route.authRoutes(
 
         post("/login") {
             try {
-                val authData = call.receiveNullable<AuthIncomingLoginData>() ?: kotlin.run {
+                val authData = call.receiveNullable<AuthIncomingLoginDto>() ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@post
                 }
@@ -174,7 +174,7 @@ fun Route.authRoutes(
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
                     ApiResponseDto.Success(
-                        data = AuthOutgoingInfo(
+                        data = AuthOutgoingInfoDto(
                             sessionId = encryptedSessionId,
                             userId = user.id
                         )
@@ -199,7 +199,7 @@ fun Route.authRoutes(
         }
 
         post("/signup") {
-            val newAccountData = call.receiveNullable<AuthIncomingNewAccountData>() ?: kotlin.run {
+            val newAccountData = call.receiveNullable<AuthIncomingNewAccountDto>() ?: kotlin.run {
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
@@ -240,7 +240,7 @@ fun Route.authRoutes(
                 val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
                 call.respond(
                     ApiResponseDto.Success(
-                        data = AuthOutgoingInfo(
+                        data = AuthOutgoingInfoDto(
                             sessionId = encryptedSessionId,
                             userId = newUserModel.id
                         )
@@ -261,7 +261,7 @@ fun Route.authRoutes(
 
             post("/confirm-code") {
                 try {
-                    val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationData>() ?: kotlin.run {
+                    val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationDto>() ?: kotlin.run {
                         call.respond(HttpStatusCode.BadRequest)
                         return@post
                     }
@@ -305,7 +305,7 @@ fun Route.authRoutes(
                 val sessionId = call.sessionId<AuthSession>()!!
                 call.respond(
                     ApiResponseDto.Success(
-                        data = AuthOutgoingInfo(
+                        data = AuthOutgoingInfoDto(
                             sessionId = sessionId,
                             userId = session.userId
                         )

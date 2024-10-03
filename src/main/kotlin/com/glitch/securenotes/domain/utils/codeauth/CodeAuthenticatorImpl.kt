@@ -1,7 +1,6 @@
 package com.glitch.securenotes.domain.utils.codeauth
 
-import com.glitch.securenotes.data.datasource.AuthSessionStorage
-import com.glitch.securenotes.data.model.dto.auth.AuthSocketEventData
+import com.glitch.securenotes.data.model.dto.auth.AuthSocketEventDto
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
@@ -75,7 +74,7 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
             socketSession = webSocketConnection
         )
         connectionExpireJobs[userId] = expireConnectionJob(userId)
-        val codeCreatedEvent = AuthSocketEventData(
+        val codeCreatedEvent = AuthSocketEventDto(
             eventCode = CodeAuthEvent.CODE_GENERATED,
             data = code
         )
@@ -100,7 +99,7 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
     override suspend fun onConnectionExpire(userId: String) {
         connections[userId]?.let { codeAuthMember ->
             val socketSession = codeAuthMember.socketSession
-            val connectionExpireEvent = AuthSocketEventData(
+            val connectionExpireEvent = AuthSocketEventDto(
                 eventCode = CodeAuthEvent.CONNECTION_EXPIRED,
                 data = null
             )
@@ -124,7 +123,7 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
         val codeAuthMember = connections.filterValues { it.code == code }.entries
             .firstOrNull() ?: throw CodeNotFoundException()
         val socketSession = codeAuthMember.value.socketSession
-        val codeConfirmEvent = AuthSocketEventData(
+        val codeConfirmEvent = AuthSocketEventDto(
             eventCode = CodeAuthEvent.CODE_CONFIRMED,
             data = sessionId
         )
@@ -135,7 +134,7 @@ class CodeAuthenticatorImpl: CodeAuthenticator {
     override suspend fun updateCode(userId: String, newCode: String) {
         connections[userId]?.let { codeAuthMember ->
             connections[userId] = codeAuthMember.copy(code = newCode)
-            val codeUpdatedEvent = AuthSocketEventData(
+            val codeUpdatedEvent = AuthSocketEventDto(
                 eventCode = CodeAuthEvent.CODE_UPDATED,
                 data = newCode
             )
