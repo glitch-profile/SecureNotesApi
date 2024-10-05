@@ -7,7 +7,7 @@ import org.bson.codecs.pojo.annotations.BsonId
 data class FileModel(
     val fileId: String = BsonId().toString(),
     val name: String,
-    val description: String,
+    val description: String? = null,
     val urlPath: String,
-    val previewUrlPath: String?
+    val previewUrlPath: String? = null
 )

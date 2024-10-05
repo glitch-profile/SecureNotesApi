@@ -9,6 +9,13 @@ class FileManagerImpl: FileManager {
 
     private val isPackedForExternal = ApplicationConfig(null).tryGetString("app.is_for_external").toBoolean()
 
+    override fun generateFilePath(fileExtension: String, fileNameSuffix: String): String {
+        return if (fileExtension.isBlank()) throw UnknownExtensionException()
+        else {
+            "${getResourcePath()}/${generateDirectoryPath()}$fileNameSuffix.$fileExtension"
+        }
+    }
+
     override fun getFile(localPath: String): File {
         val file = File(localPath)
         if (file.exists() && file.canRead()) return file
@@ -24,10 +31,9 @@ class FileManagerImpl: FileManager {
         } else throw FileAccessException()
     }
 
-    override fun uploadFile(fileName: String, fileBytes: ByteArray, fileNameSuffix: String): String {
-        val fileData = File(fileName)
-        if (fileData.extension.isEmpty()) throw UnknownExtensionException()
-        val file = File("${getResourcePath()}/${generateDirectoryPath()}$fileNameSuffix.${fileData.extension}")
+    override fun uploadFile(fileBytes: ByteArray, fileExtension: String, fileNameSuffix: String): String {
+        if (fileExtension.isBlank()) throw UnknownExtensionException()
+        val file = File(generateFilePath(fileExtension = fileExtension, fileNameSuffix = fileNameSuffix))
         file.parentFile.mkdirs()
         file.outputStream().use {
             it.write(fileBytes)
