@@ -8,6 +8,8 @@ import com.glitch.securenotes.domain.routes.authRoutes
 import com.glitch.securenotes.domain.routes.userRoutes
 import com.glitch.securenotes.domain.routes.utilRoutes
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
+import com.glitch.securenotes.domain.utils.filemanager.FileManager
+import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessor
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -17,10 +19,14 @@ import org.koin.ktor.ext.inject
 import java.io.File
 
 fun Application.configureRouting() {
-    val userCredentialsDataSource by inject<UserCredentialsDataSource>()
-    val usersDataSource by inject<UsersDataSource>()
     val codeAuthenticator by inject<CodeAuthenticator>()
     val authSessionManager by inject<AuthSessionStorage>()
+
+    val userCredentialsDataSource by inject<UserCredentialsDataSource>()
+    val usersDataSource by inject<UsersDataSource>()
+
+    val fileManager by inject<FileManager>()
+    val imageProcessor by inject<ImageProcessor>()
 
     routing {
 
@@ -30,7 +36,12 @@ fun Application.configureRouting() {
             codeAuthenticator,
             authSessionManager
         )
-        userRoutes()
+        userRoutes(
+            usersDataSource,
+            userCredentialsDataSource,
+            fileManager,
+            imageProcessor
+        )
         utilRoutes()
 
         // should use this instead of static resources

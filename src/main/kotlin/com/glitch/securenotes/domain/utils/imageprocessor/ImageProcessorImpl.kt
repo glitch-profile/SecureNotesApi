@@ -22,7 +22,7 @@ class ImageProcessorImpl: ImageProcessor {
 
     override fun getImageDimensions(localPath: String): ImageDimensions {
         val imageFile = File(localPath)
-        if (isImage(localPath) || !imageFile.isFile || !imageFile.exists())
+        if (!isFileAvailable(imageFile))
             throw ImageProcessingException()
         val image = ImageIO.read(imageFile)
         return ImageDimensions(
@@ -37,7 +37,7 @@ class ImageProcessorImpl: ImageProcessor {
         maxDimSize: Int,
         compressionQuality: Float
     ) {
-        if (isImage(inputFile.path) || !inputFile.isFile || !inputFile.exists())
+        if (!isFileAvailable(inputFile))
             throw ImageProcessingException()
         val sourceImage = ImageIO.read(inputFile)
 
@@ -67,6 +67,7 @@ class ImageProcessorImpl: ImageProcessor {
         jpgWriterParams.compressionMode = ImageWriteParam.MODE_EXPLICIT
         jpgWriterParams.compressionQuality = compressionQuality
 
+        File(outputFile.parent).mkdirs()
         val outputStream = FileImageOutputStream(outputFile)
         jpgWriter.output = outputStream
         jpgWriter.write(null, IIOImage(newImage, null, null), jpgWriterParams)
@@ -75,7 +76,7 @@ class ImageProcessorImpl: ImageProcessor {
     }
 
     override fun compressImageAndCrop(inputFile: File, outputFile: File, sideSize: Int, compressionQuality: Float) {
-        if (isImage(inputFile.path) || !inputFile.isFile || !inputFile.exists())
+        if (!isFileAvailable(inputFile))
             throw ImageProcessingException()
         val sourceImage = ImageIO.read(inputFile)
 
@@ -90,7 +91,7 @@ class ImageProcessorImpl: ImageProcessor {
             ImageCropCoordinates(
                 (sourceImage.width / 2) - (sourceImage.height / 2),
                 0,
-                sourceImage.width,
+                sourceImage.height,
                 sourceImage.height
             )
         } else {
@@ -98,7 +99,7 @@ class ImageProcessorImpl: ImageProcessor {
                 0,
                 (sourceImage.height / 2) - (sourceImage.width / 2),
                 sourceImage.width,
-                sourceImage.height
+                sourceImage.width
             )
         }
         val squareImage = sourceImage.getSubimage(
@@ -135,10 +136,15 @@ class ImageProcessorImpl: ImageProcessor {
         jpgWriterParams.compressionMode = ImageWriteParam.MODE_EXPLICIT
         jpgWriterParams.compressionQuality = compressionQuality
 
+        File(outputFile.parent).mkdirs()
         val outputStream = FileImageOutputStream(outputFile)
         jpgWriter.output = outputStream
         jpgWriter.write(null, IIOImage(newImage, null, null), jpgWriterParams)
         jpgWriter.dispose()
         outputStream.close()
+    }
+
+    private fun isFileAvailable(file: File): Boolean {
+        return isImage(file.path) && file.isFile && file.canRead()
     }
 }
