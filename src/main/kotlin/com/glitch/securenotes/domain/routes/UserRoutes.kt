@@ -1,10 +1,16 @@
 package com.glitch.securenotes.domain.routes
 
+import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
+import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.exceptions.users.UnknownAvatarFormatException
+import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
+import com.glitch.securenotes.data.model.dto.ApiResponseDto
+import com.glitch.securenotes.data.model.dto.users.UserInfoDto
 import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.domain.sessions.AuthSession
+import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.filemanager.FileManager
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessor
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessorConstants
@@ -20,11 +26,12 @@ import kotlinx.io.readByteArray
 import java.io.File
 
 // max new avatar image size
-private val MAX_FILE_SIZE = 5_242_880 // 5 MB in bytes
+private const val MAX_FILE_SIZE = 5_242_880 // 5 MB in bytes
 
 fun Route.userRoutes(
     usersDataSource: UsersDataSource,
     userCredentialsDataSource: UserCredentialsDataSource,
+    authSessionStorage: AuthSessionStorage,
     fileManager: FileManager,
     imageProcessor: ImageProcessor
 ) {
@@ -111,6 +118,85 @@ fun Route.userRoutes(
                 }
             }
 
+        }
+
+        get("/{user_id}") {
+            val session = call.sessions.get<AuthSession>()!!
+            val requestedUserId = call.request.pathVariables["user_id"] ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+            try {
+                val requestedUser = usersDataSource.getUserById(requestedUserId)
+                if (session.userId == requestedUserId) {
+                    val encryptionKey = if (requestedUser.syncedEncryptionKey != null) {
+                        AESEncryptor.decrypt(requestedUser.syncedEncryptionKey)
+                    } else null
+                    call.respond(
+                        ApiResponseDto.Success(
+                            data = UserInfoDto(
+                                id = requestedUser.id,
+                                username = requestedUser.username,
+                                encryptionKey = encryptionKey,
+                                profileImage = requestedUser.profileAvatar,
+                                accountCreationTimestamp = requestedUser.creationDate
+                            )
+                        )
+                    )
+                } else {
+                    call.respond(
+                        ApiResponseDto.Success(
+                            data = UserInfoDto(
+                                id = requestedUser.id,
+                                username = requestedUser.username,
+                                profileImage = requestedUser.profileAvatar
+                            )
+                        )
+                    )
+                }
+            } catch (e: UserNotFoundException) {
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                        message = "User not found"
+                    )
+                )
+            }
+        }
+
+        delete("/delete") {
+            val session = call.sessions.get<AuthSession>()!!
+            val userId = session.userId
+            try {
+                val user = usersDataSource.getUserById(userId)
+                user.activeSessions.forEach { sessionId ->
+                    authSessionStorage.delete(sessionId)
+                }
+                // TODO: delete all notes for user
+                val result = usersDataSource.deleteUserById(userId)
+                if (result) {
+                    call.respond(
+                        ApiResponseDto.Success(
+                            data = null,
+                            message = "User deleted. We will miss you"
+                        )
+                    )
+                } else {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
+                            message = "Sorry, we are unable to delete this user"
+                        )
+                    )
+                }
+            } catch (e: UserNotFoundException) {
+                call.respond(
+                    ApiResponseDto.Error<Unit>(
+                        apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                        message = "This user not found"
+                    )
+                )
+            }
         }
 
     }

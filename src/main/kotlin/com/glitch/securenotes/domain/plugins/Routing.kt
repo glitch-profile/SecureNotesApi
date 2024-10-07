@@ -39,6 +39,7 @@ fun Application.configureRouting() {
         userRoutes(
             usersDataSource,
             userCredentialsDataSource,
+            authSessionManager,
             fileManager,
             imageProcessor
         )
@@ -80,6 +81,10 @@ fun Application.configureRouting() {
                 ContentType.defaultForFile(file).toString()
             )
             call.respondBytes(decryptedBytes)
+        }
+        get("test4") {
+            val secret = AESEncryptor.generateSecret()
+            call.respond(secret)
         }
     }
 }
