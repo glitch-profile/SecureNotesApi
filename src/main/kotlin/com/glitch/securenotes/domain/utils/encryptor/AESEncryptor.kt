@@ -2,6 +2,8 @@ package com.glitch.floweryapi.domain.utils.encryptor
 
 import io.ktor.server.config.*
 import io.ktor.util.*
+import io.ktor.utils.io.charsets.Charsets
+import java.nio.charset.Charset
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -11,16 +13,28 @@ private const val CIPHER_TRANSFORMATION = "AES/CBC/PKCS5Padding"
 
 object AESEncryptor {
 
-    private val secret = ApplicationConfig(null).tryGetString("app.security.encrypt_secret")
-    private val iv = ApplicationConfig(null).tryGetString("app.security.encrypt_iv")
+    private val secret = ApplicationConfig(null).tryGetString("app.security.encrypt_secret")!!
+    private val iv = ApplicationConfig(null).tryGetString("app.security.encrypt_iv")!!
+
+    fun generateSecret(): String {
+        val availableCharacters = "123456789" +
+                CharRange(start = 'a', endInclusive = 'z').toList().joinToString("") +
+                CharRange(start = 'A', endInclusive = 'Z').toList().joinToString("") +
+                "!@#$%^&*()_-+=/|\\<,.>?"
+        var secret = ""
+        repeat(32) {
+            secret += availableCharacters.random()
+        }
+        return secret
+    }
 
     fun encrypt(
         normalString: String,
-        secretKey: String = secret!!
+        secretKey: String = secret
     ): String {
         return try {
             val secretKeySpec = SecretKeySpec(secretKey.toByteArray(), "AES")
-            val ivParameterSpec = IvParameterSpec(iv!!.toByteArray())
+            val ivParameterSpec = IvParameterSpec(iv.toByteArray())
 
             val plainText = normalString.toByteArray()
 
@@ -36,11 +50,11 @@ object AESEncryptor {
 
     fun encrypt(
         normalByteArray: ByteArray,
-        secretKey: String = secret!!
+        secretKey: String = secret
     ): ByteArray {
         try {
             val secretKeySpec = SecretKeySpec(secretKey.toByteArray(), "AES")
-            val ivParameterSpec = IvParameterSpec(iv!!.toByteArray())
+            val ivParameterSpec = IvParameterSpec(iv.toByteArray())
 
             val cipher = Cipher.getInstance(CIPHER_TRANSFORMATION)
             cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec)
@@ -54,11 +68,11 @@ object AESEncryptor {
 
     fun decrypt(
         encryptedString: String,
-        secretKey: String = secret!!
+        secretKey: String = secret
     ): String {
         return try {
             val secretKeySpec = SecretKeySpec(secretKey.toByteArray(), "AES")
-            val ivParameterSpec = IvParameterSpec(iv!!.toByteArray())
+            val ivParameterSpec = IvParameterSpec(iv.toByteArray())
 
             val textToDecrypt = encryptedString.decodeBase64Bytes()
 
@@ -74,11 +88,11 @@ object AESEncryptor {
 
     fun decrypt(
         encryptedByteArray: ByteArray,
-        secretKey: String = secret!!
+        secretKey: String = secret
     ): ByteArray {
         try {
             val secretKeySpec = SecretKeySpec(secretKey.toByteArray(), "AES")
-            val ivParameterSpec = IvParameterSpec(iv!!.toByteArray())
+            val ivParameterSpec = IvParameterSpec(iv.toByteArray())
 
             val cipher = Cipher.getInstance(CIPHER_TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
