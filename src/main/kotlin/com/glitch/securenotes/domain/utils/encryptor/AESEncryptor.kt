@@ -20,7 +20,7 @@ object AESEncryptor {
         val availableCharacters = "123456789" +
                 CharRange(start = 'a', endInclusive = 'z').toList().joinToString("") +
                 CharRange(start = 'A', endInclusive = 'Z').toList().joinToString("") +
-                "!@#$%^&*()_-+=/|\\<,.>?"
+                ":;!@#$%^&*()_-+=/|\\<,.>?"
         var secret = ""
         repeat(32) {
             secret += availableCharacters.random()
