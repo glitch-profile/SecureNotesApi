@@ -38,17 +38,17 @@ fun Route.userRoutes(
 
     route("api/V1/users") {
 
-        authenticate("guest") {
+        authenticate("user") {
 
-            post("/update-avatar") {
+            put("/update-avatar") {
                 val session = call.sessions.get<AuthSession>()!!
                 val contentLength = call.request.header(HttpHeaders.ContentLength)?.toInt() ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
-                    return@post
+                    return@put
                 }
                 if (contentLength > MAX_FILE_SIZE) {
                     call.respond(HttpStatusCode.PayloadTooLarge)
-                    return@post
+                    return@put
                 }
                 try {
                     val multipartData = call.receiveMultipart()
@@ -112,91 +112,122 @@ fun Route.userRoutes(
                     } else call.respond(HttpStatusCode.BadRequest)
                 } catch (e: UnknownAvatarFormatException) {
                     call.respond(HttpStatusCode.BadRequest)
-                    return@post
+                    return@put
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
 
-        }
-
-        get("/{user_id}") {
-            val session = call.sessions.get<AuthSession>()!!
-            val requestedUserId = call.request.pathVariables["user_id"] ?: kotlin.run {
-                call.respond(HttpStatusCode.BadRequest)
-                return@get
-            }
-            try {
-                val requestedUser = usersDataSource.getUserById(requestedUserId)
-                if (session.userId == requestedUserId) {
-                    val encryptionKey = if (requestedUser.syncedEncryptionKey != null) {
-                        AESEncryptor.decrypt(requestedUser.syncedEncryptionKey)
-                    } else null
-                    call.respond(
-                        ApiResponseDto.Success(
-                            data = UserInfoDto(
-                                id = requestedUser.id,
-                                username = requestedUser.username,
-                                encryptionKey = encryptionKey,
-                                profileImage = requestedUser.profileAvatar,
-                                accountCreationTimestamp = requestedUser.creationDate
+            put("/remove-avatar") {
+                val session = call.sessions.get<AuthSession>()!!
+                try {
+                    val result = usersDataSource.updateUserProfileAvatar(
+                        userId = session.userId,
+                        imageInfo = null
+                    )
+                    if (result) {
+                        call.respond(
+                            ApiResponseDto.Success(
+                                data = null
                             )
                         )
-                    )
-                } else {
-                    call.respond(
-                        ApiResponseDto.Success(
-                            data = UserInfoDto(
-                                id = requestedUser.id,
-                                username = requestedUser.username,
-                                profileImage = requestedUser.profileAvatar
+                    } else {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
+                                message = "Unknown error occurred"
                             )
                         )
-                    )
-                }
-            } catch (e: UserNotFoundException) {
-                call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                        message = "User not found"
-                    )
-                )
-            }
-        }
-
-        delete("/delete") {
-            val session = call.sessions.get<AuthSession>()!!
-            val userId = session.userId
-            try {
-                val user = usersDataSource.getUserById(userId)
-                user.activeSessions.forEach { sessionId ->
-                    authSessionStorage.delete(sessionId)
-                }
-                // TODO: delete all notes for user
-                val result = usersDataSource.deleteUserById(userId)
-                if (result) {
-                    call.respond(
-                        ApiResponseDto.Success(
-                            data = null,
-                            message = "User deleted. We will miss you"
-                        )
-                    )
-                } else {
+                    }
+                } catch (e: UserNotFoundException) {
                     call.respond(
                         ApiResponseDto.Error<Unit>(
-                            apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
-                            message = "Sorry, we are unable to delete this user"
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            "User not found"
                         )
                     )
                 }
-            } catch (e: UserNotFoundException) {
-                call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                        message = "This user not found"
-                    )
-                )
             }
+
+            get("/{user_id}") {
+                val session = call.sessions.get<AuthSession>()!!
+                val requestedUserId = call.request.pathVariables["user_id"] ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@get
+                }
+                try {
+                    val requestedUser = usersDataSource.getUserById(requestedUserId)
+                    if (session.userId == requestedUserId) {
+                        val encryptionKey = if (requestedUser.syncedEncryptionKey != null) {
+                            AESEncryptor.decrypt(requestedUser.syncedEncryptionKey)
+                        } else null
+                        call.respond(
+                            ApiResponseDto.Success(
+                                data = UserInfoDto(
+                                    id = requestedUser.id,
+                                    username = requestedUser.username,
+                                    encryptionKey = encryptionKey,
+                                    profileImage = requestedUser.profileAvatar,
+                                    accountCreationTimestamp = requestedUser.creationDate
+                                )
+                            )
+                        )
+                    } else {
+                        call.respond(
+                            ApiResponseDto.Success(
+                                data = UserInfoDto(
+                                    id = requestedUser.id,
+                                    username = requestedUser.username,
+                                    profileImage = requestedUser.profileAvatar
+                                )
+                            )
+                        )
+                    }
+                } catch (e: UserNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "User not found"
+                        )
+                    )
+                }
+            }
+
+            delete("/delete") {
+                val session = call.sessions.get<AuthSession>()!!
+                val userId = session.userId
+                try {
+                    val user = usersDataSource.getUserById(userId)
+                    user.activeSessions.forEach { sessionId ->
+                        authSessionStorage.delete(sessionId)
+                    }
+                    // TODO: delete all notes for user
+                    val result = usersDataSource.deleteUserById(userId)
+                    if (result) {
+                        call.respond(
+                            ApiResponseDto.Success(
+                                data = null,
+                                message = "User deleted. We will miss you"
+                            )
+                        )
+                    } else {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
+                                message = "Unknown error occurred"
+                            )
+                        )
+                    }
+                } catch (e: UserNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "This user not found"
+                        )
+                    )
+                }
+            }
+
         }
 
     }
