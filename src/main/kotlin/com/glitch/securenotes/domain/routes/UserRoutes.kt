@@ -4,10 +4,15 @@ import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
+import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
+import com.glitch.securenotes.data.exceptions.auth.IncorrectCredentialsException
+import com.glitch.securenotes.data.exceptions.auth.SessionNotFoundException
 import com.glitch.securenotes.data.exceptions.users.UnknownAvatarFormatException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
+import com.glitch.securenotes.data.model.dto.auth.AuthSessionOutgoingDto
 import com.glitch.securenotes.data.model.dto.users.UserInfoDto
+import com.glitch.securenotes.data.model.dto.users.UserUpdatePasswordDto
 import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
@@ -104,12 +109,16 @@ fun Route.userRoutes(
                             part.dispose()
                         }
                     }
-                    if (newAvatarImageInfo != null) {
-                        usersDataSource.updateUserProfileAvatar(
-                            userId = session.userId,
-                            imageInfo = newAvatarImageInfo
+                    usersDataSource.updateUserProfileAvatar(
+                        userId = session.userId,
+                        imageInfo = newAvatarImageInfo
+                    )
+                    call.respond(
+                        ApiResponseDto.Success(
+                            data = null,
+                            message = "Avatar updated"
                         )
-                    } else call.respond(HttpStatusCode.BadRequest)
+                    )
                 } catch (e: UnknownAvatarFormatException) {
                     call.respond(HttpStatusCode.BadRequest)
                     return@put
@@ -118,35 +127,66 @@ fun Route.userRoutes(
                 }
             }
 
-            put("/remove-avatar") {
-                val session = call.sessions.get<AuthSession>()!!
-                try {
-                    val result = usersDataSource.updateUserProfileAvatar(
-                        userId = session.userId,
-                        imageInfo = null
-                    )
-                    if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(
-                                data = null
-                            )
+            route("/sync") {
+
+                post("/enable") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    val newEncryptionCode = AESEncryptor.generateSecret()
+                    try {
+                        val result = usersDataSource.enableEncryptionKeySync(
+                            userId = session.userId,
+                            encryptionKey = newEncryptionCode
                         )
-                    } else {
+                        if (result) {
+                            call.respond(
+                                ApiResponseDto.Success(
+                                    data = null,
+                                    message = "Sync enabled"
+                                )
+                            )
+                        } else {
+                            call.respond(
+                                ApiResponseDto.Error<Unit>()
+                            )
+                        }
+                    } catch (e: UserNotFoundException) {
                         call.respond(
                             ApiResponseDto.Error<Unit>(
-                                apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
-                                message = "Unknown error occurred"
+                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                                message = "User not found"
                             )
                         )
                     }
-                } catch (e: UserNotFoundException) {
-                    call.respond(
-                        ApiResponseDto.Error<Unit>(
-                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            "User not found"
-                        )
-                    )
                 }
+
+                post("/disable") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    try {
+                        val result = usersDataSource.disableEncryptionKeySync(
+                            userId = session.userId
+                        )
+                        if (result) {
+                            call.respond(
+                                ApiResponseDto.Success(
+                                    data = null,
+                                    message = "Sync enabled"
+                                )
+                            )
+                        } else {
+                            call.respond(
+                                ApiResponseDto.Error<Unit>()
+                            )
+                        }
+                    } catch (e: UserNotFoundException) {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                                message = "User not found"
+                            )
+                        )
+                    }
+                }
+
             }
 
             get("/{user_id}") {
@@ -193,6 +233,90 @@ fun Route.userRoutes(
                 }
             }
 
+            put("/update-username") {
+                val session = call.sessions.get<AuthSession>()!!
+                val userName = call.receiveText()
+                val userNameFormatted = userName.filterNot {
+                    it.isLetterOrDigit() || it in "~_-+=*#@!<>,./?"
+                }.take(20)
+                try {
+                    if (userNameFormatted.isNotBlank() && userNameFormatted.length >= 3) {
+                        val result = usersDataSource.updateUsername(
+                            userId = session.userId,
+                            newUsername = userNameFormatted
+                        )
+                        if (result) {
+                            call.respond(
+                                ApiResponseDto.Success(
+                                    data = null,
+                                    message = "Username updated"
+                                )
+                            )
+                        } else {
+                            call.respond(ApiResponseDto.Error<Unit>())
+                        }
+                    } else call.respond(HttpStatusCode.BadRequest)
+                } catch (e: UserNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "User not found"
+                        )
+                    )
+                }
+            }
+
+            put("/update-password") {
+                val session = call.sessions.get<AuthSession>()!!
+                val passwordData = call.receiveNullable<UserUpdatePasswordDto>() ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@put
+                }
+                try {
+                    val newPasswordFormatted = passwordData.newPassword.filterNot {
+                        it.isISOControl() || it.isWhitespace()
+                    }.take(20)
+                    val result = userCredentialsDataSource.updateCredentials(
+                        userId = session.userId,
+                        oldPassword = passwordData.oldPassword,
+                        newPassword = newPasswordFormatted
+                    )
+                    if (result) {
+                        call.respond(
+                            ApiResponseDto.Success(
+                                data = null,
+                                message = "Password updated"
+                            )
+                        )
+                    } else {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>()
+                        )
+                    }
+                } catch (e: UserNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "User not found"
+                        )
+                    )
+                } catch (e: CredentialsNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "User not found"
+                        )
+                    )
+                } catch (e: IncorrectCredentialsException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.AUTH_DATA_INCORRECT,
+                            message = "Incorrect password"
+                        )
+                    )
+                }
+            }
+
             delete("/delete") {
                 val session = call.sessions.get<AuthSession>()!!
                 val userId = session.userId
@@ -212,10 +336,7 @@ fun Route.userRoutes(
                         )
                     } else {
                         call.respond(
-                            ApiResponseDto.Error<Unit>(
-                                apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
-                                message = "Unknown error occurred"
-                            )
+                            ApiResponseDto.Error<Unit>()
                         )
                     }
                 } catch (e: UserNotFoundException) {
@@ -226,6 +347,108 @@ fun Route.userRoutes(
                         )
                     )
                 }
+            }
+
+            route("/sessions") {
+
+                get {
+                    val session = call.sessions.get<AuthSession>()!!
+                    try {
+                        val activeSessionIds = usersDataSource.getUserById(session.userId).activeSessions
+                        val activeSessions = activeSessionIds.mapNotNull { id ->
+                            try {
+                                val sessionData = authSessionStorage.get(id)
+                                AuthSessionOutgoingDto(
+                                    id = id,
+                                    platform = sessionData.platformName,
+                                    agentName = sessionData.agentName,
+                                    lastActiveTimestamp = sessionData.lastActivityTimestamp
+                                )
+                            } catch (e: SessionNotFoundException) {
+                                null
+                            }
+                        }.sortedByDescending { it.lastActiveTimestamp }
+                        call.respond(
+                            ApiResponseDto.Success(
+                                data = activeSessions
+                            )
+                        )
+                    } catch (e: UserNotFoundException) {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                                message = "User not found"
+                            )
+                        )
+                    }
+                }
+
+                post("/{sessionId}/destroy") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    val sessionId = call.pathParameters["sessionId"] ?: kotlin.run {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@post
+                    }
+                    try {
+                        val sessionToClose = authSessionStorage.get(sessionId)
+                        if (session.userId == sessionToClose.userId) {
+                            usersDataSource.removeActiveSessionId(
+                                userId = session.userId,
+                                sessionId = sessionId
+                            )
+                            authSessionStorage.delete(sessionId)
+                            call.respond(
+                                ApiResponseDto.Success(
+                                    data = null
+                                )
+                            )
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    } catch (e: SessionNotFoundException) {
+                        call.respond(HttpStatusCode.NotFound)
+                    }
+                    // TODO: Replace with api error codes
+                }
+
+                post("/destroy") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    val isIncludeClientSession = call.request.queryParameters["include-self"].toBoolean()
+                    try {
+                        val userInfo = usersDataSource.getUserById(session.userId)
+                        val sessionIdsToDelete = if (!isIncludeClientSession) {
+                            userInfo.activeSessions.toMutableList().apply {
+                                remove(call.sessionId<AuthSession>())
+                            }
+                        } else userInfo.activeSessions
+                        sessionIdsToDelete.forEach { id ->
+                            authSessionStorage.delete(id)
+                        }
+                        val result = usersDataSource.removeActiveSessionId(
+                            userId = session.userId,
+                            sessionsIds = sessionIdsToDelete
+                        )
+                        if (result) {
+                            call.respond(
+                                ApiResponseDto.Success(
+                                    data = null
+                                )
+                            )
+                        } else {
+                            call.respond(
+                                ApiResponseDto.Error<Unit>()
+                            )
+                        }
+                    } catch (e: UserNotFoundException) {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                                message = "User not found"
+                            )
+                        )
+                    }
+                }
+
             }
 
         }
