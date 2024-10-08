@@ -55,6 +55,14 @@ class UsersDataSourceImpl(
         else throw UserNotFoundException()
     }
 
+    override suspend fun getUserEncryptionKey(userId: String): String? {
+        val filter = Filters.eq("_id", userId)
+        val userModel = users.find(filter).singleOrNull() ?: throw  UserNotFoundException()
+        return if (userModel.syncedEncryptionKey != null) {
+            AESEncryptor.decrypt(userModel.syncedEncryptionKey)
+        } else null
+    }
+
     override suspend fun enableEncryptionKeySync(userId: String, encryptionKey: String): Boolean {
         val filter = Filters.eq("_id", userId)
         val protectedEncryptionKey = AESEncryptor.encrypt(encryptionKey)

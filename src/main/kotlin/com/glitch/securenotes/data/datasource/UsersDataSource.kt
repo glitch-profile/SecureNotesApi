@@ -19,6 +19,8 @@ interface UsersDataSource {
 
     suspend fun updateUserById(userId: String, newUserModel: UserModel): Boolean
 
+    suspend fun getUserEncryptionKey(userId: String): String?
+
     suspend fun enableEncryptionKeySync(userId: String, encryptionKey: String): Boolean
 
     suspend fun disableEncryptionKeySync(userId: String): Boolean
