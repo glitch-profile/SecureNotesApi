@@ -1,5 +1,6 @@
 package com.glitch.securenotes.data.model.dto
 
+import com.glitch.securenotes.domain.utils.ApiErrorCode
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -20,8 +21,8 @@ sealed class ApiResponseDto<T> {
 
     @Serializable
     data class Error<T>(
-        override val apiErrorCode: Int,
-        override val message: String,
+        override val apiErrorCode: Int = ApiErrorCode.UNKNOWN_ERROR,
+        override val message: String = "Unknown error",
         override val data: T? = null
     ): ApiResponseDto<T>() {
         override val status = false
