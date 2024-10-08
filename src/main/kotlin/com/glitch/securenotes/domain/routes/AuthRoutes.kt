@@ -154,8 +154,8 @@ fun Route.authRoutes(
                 val formattedPlatformName = platform.filterNot { it == '"' }
                 val formattedAgent = getUserBrowserData(agent)
                 val userId = userCredentialsDataSource.auth(
-                    login = authData.login.take(15),
-                    password = authData.password.take(15)
+                    login = authData.login.take(20),
+                    password = authData.password.take(20)
                 )
                 val user = usersDataSource.getUserById(userId)
                 // do some check here
@@ -217,9 +217,15 @@ fun Route.authRoutes(
             val formattedPlatformName = platform.filterNot { it == '"' }
             val formattedAgent = getUserBrowserData(agent)
             val authDataFormatted = newAccountData.copy(
-                username = newAccountData.username.take(15),
-                login = newAccountData.login.take(15),
-                password = newAccountData.password.take(15)
+                username = newAccountData.username.filter {
+                    it.isLetterOrDigit() || it in "~_-+=*#@!<>,./?"
+                }.take(20),
+                login = newAccountData.login.take(20).filterNot {
+                    it.isISOControl() || it.isWhitespace()
+                }.take(20),
+                password = newAccountData.password.filterNot {
+                    it.isISOControl() || it.isWhitespace()
+                }.take(20)
             )
             val newUserModel = usersDataSource.addUser(authDataFormatted.login)
             try {

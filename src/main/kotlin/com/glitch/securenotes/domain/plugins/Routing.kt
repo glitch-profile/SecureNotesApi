@@ -82,9 +82,13 @@ fun Application.configureRouting() {
             )
             call.respondBytes(decryptedBytes)
         }
-        get("test4") {
-            val secret = AESEncryptor.generateSecret()
-            call.respond(secret)
+        post("test4") {
+            val list = listOf(1, 2, 3, 4, 5)
+            val list2= listOf(1, 2, 3, 4, 5).toMutableList().apply {
+                removeFirst()
+            }
+            println(list)
+            println(list2)
         }
     }
 }

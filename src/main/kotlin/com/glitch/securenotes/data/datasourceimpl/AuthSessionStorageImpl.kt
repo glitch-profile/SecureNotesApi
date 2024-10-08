@@ -47,7 +47,7 @@ class AuthSessionStorageImpl: AuthSessionStorage {
         val authSession = AuthSession(
             userId = userId,
             platformName = platformName,
-            appVersionString = appVersion,
+            agentName = appVersion,
             durationInHours = maxDurationInHours,
             lastActivityTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
         )

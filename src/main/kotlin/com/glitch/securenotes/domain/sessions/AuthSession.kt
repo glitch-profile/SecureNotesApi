@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data class AuthSession(
     val userId: String,
     val platformName: String,
-    val appVersionString: String,
+    val agentName: String,
     val lastActivityTimestamp: Long,
     val durationInHours: Int? // null is never expire
 )
