@@ -27,7 +27,13 @@ interface UsersDataSource {
 
     suspend fun updateUsername(userId: String, newUsername: String): Boolean
 
-    suspend fun updateUserProfileAvatar(userId: String, imageInfo: FileModel?): Boolean
+    suspend fun updateUserProfileAvatar(
+        userId: String,
+        avatarUrlPath: String,
+        avatarThumbnailUrlPath: String
+    ): Boolean
+
+    suspend fun clearUserProfileAvatar(userId: String): Boolean
 
     suspend fun addActiveSessionId(userId: String, sessionId: String): Boolean
 

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.toList
 
 class UsersDataSourceImpl(
     database: MongoDatabase
-): UsersDataSource {
+) : UsersDataSource {
 
     private val users = database.getCollection<UserModel>("Users")
 
@@ -57,7 +57,7 @@ class UsersDataSourceImpl(
 
     override suspend fun getUserEncryptionKey(userId: String): String? {
         val filter = Filters.eq("_id", userId)
-        val userModel = users.find(filter).singleOrNull() ?: throw  UserNotFoundException()
+        val userModel = users.find(filter).singleOrNull() ?: throw UserNotFoundException()
         return if (userModel.syncedEncryptionKey != null) {
             AESEncryptor.decrypt(userModel.syncedEncryptionKey)
         } else null
@@ -88,9 +88,26 @@ class UsersDataSourceImpl(
         else throw UserNotFoundException()
     }
 
-    override suspend fun updateUserProfileAvatar(userId: String, imageInfo: FileModel?): Boolean {
+    override suspend fun updateUserProfileAvatar(
+        userId: String,
+        avatarUrlPath: String,
+        avatarThumbnailUrlPath: String
+    ): Boolean {
         val filter = Filters.eq("_id", userId)
+        val imageInfo = FileModel(
+            name = "avatar.jpg",
+            urlPath = avatarUrlPath,
+            previewUrlPath = avatarThumbnailUrlPath
+        )
         val update = Updates.set(UserModel::profileAvatar.name, imageInfo)
+        val result = users.updateOne(filter, update)
+        if (result.matchedCount != 0L) return true
+        else throw UserNotFoundException()
+    }
+
+    override suspend fun clearUserProfileAvatar(userId: String): Boolean {
+        val filter = Filters.eq("_id", userId)
+        val update = Updates.set(UserModel::profileAvatar.name, null)
         val result = users.updateOne(filter, update)
         if (result.matchedCount != 0L) return true
         else throw UserNotFoundException()

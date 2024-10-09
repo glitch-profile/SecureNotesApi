@@ -43,7 +43,7 @@ fun Route.userRoutes(
 
     route("api/V1/users") {
 
-        authenticate("user") {
+        authenticate("guest") {
 
             put("/update-avatar") {
                 val session = call.sessions.get<AuthSession>()!!
@@ -57,11 +57,12 @@ fun Route.userRoutes(
                 }
                 try {
                     val multipartData = call.receiveMultipart()
+                    val user = usersDataSource.getUserById(session.userId) // making sure this user is existing
                     var newAvatarImageInfo: FileModel? = null
                     multipartData.forEachPart { part ->
                         if (newAvatarImageInfo == null) {
                             when (part) {
-                                is PartData.FormItem -> { }
+                                is PartData.FormItem -> Unit
                                 is PartData.FileItem -> {
                                     val fileName = part.originalFileName!!.filter {
                                         it.isLetterOrDigit() || it == '.' || it == '_'
@@ -70,6 +71,7 @@ fun Route.userRoutes(
                                         throw UnknownAvatarFormatException()
                                     }
                                     val fileBytes = part.provider().readRemaining().readByteArray()
+
                                     // image without compression
                                     val imageExtension = File(fileName).extension
                                     val uploadedFileLocalPath = fileManager.uploadFile(
@@ -104,15 +106,26 @@ fun Route.userRoutes(
                                     newAvatarImageInfo = imageInfo
                                     originalFile.delete()
                                 }
-                                else -> { }
+                                else -> Unit
                             }
                             part.dispose()
                         }
                     }
-                    usersDataSource.updateUserProfileAvatar(
-                        userId = session.userId,
-                        imageInfo = newAvatarImageInfo
-                    )
+                    if (user.profileAvatar != null) { // deleting old avatar
+                        val defaultAvatarPath = fileManager.toLocalPath(user.profileAvatar.urlPath)
+                        val avatarThumbnailPath = fileManager.toLocalPath(user.profileAvatar.previewUrlPath!!)
+                        kotlin.runCatching { fileManager.deleteFile(defaultAvatarPath) }
+                        kotlin.runCatching { fileManager.deleteFile(avatarThumbnailPath) }
+                    }
+                    if (newAvatarImageInfo != null) {
+                        usersDataSource.updateUserProfileAvatar(
+                            userId = user.id,
+                            avatarUrlPath = newAvatarImageInfo!!.urlPath,
+                            avatarThumbnailUrlPath = newAvatarImageInfo!!.previewUrlPath!!
+                        )
+                    } else {
+                        usersDataSource.clearUserProfileAvatar(user.id)
+                    }
                     call.respond(
                         ApiResponseDto.Success(
                             data = null,
@@ -120,10 +133,19 @@ fun Route.userRoutes(
                         )
                     )
                 } catch (e: UnknownAvatarFormatException) {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@put
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.FILE_EXTENSION_UNKNOWN,
+                            message = "This file format is not supported by this endpoint"
+                        )
+                    )
+                } catch (e: UserNotFoundException) {
+                    call.respond(
+                        ApiResponseDto.Error<Unit>(
+                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                            message = "User not found"
+                        )
+                    )
                 }
             }
 
