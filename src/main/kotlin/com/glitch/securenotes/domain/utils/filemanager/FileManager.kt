@@ -19,6 +19,11 @@ interface FileManager {
         fileNameSuffix: String = ""
     ): String
 
+    fun uploadTempFile(
+        fileBytes: ByteArray,
+        fileExtension: String
+    ): String
+
     fun updateFileContent(
         localPath: String,
         newByteArray: ByteArray

@@ -41,6 +41,16 @@ class FileManagerImpl: FileManager {
         return file.path
     }
 
+    override fun uploadTempFile(fileBytes: ByteArray, fileExtension: String): String {
+        if (fileExtension.isBlank()) throw UnknownExtensionException()
+        val tempFileName = UUID.randomUUID().toString().filterNot { it == '-' }
+        val tempFilePath = "${getResourcePath()}/.temp/$tempFileName.$fileExtension"
+        val file = File(tempFilePath)
+        file.parentFile.mkdirs()
+        file.outputStream().use { it.write(fileBytes) }
+        return file.path
+    }
+
     override fun updateFileContent(localPath: String, newByteArray: ByteArray) {
         val file = getFile(localPath)
         file.outputStream().use {
