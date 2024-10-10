@@ -59,6 +59,7 @@ fun Route.userRoutes(
                     val multipartData = call.receiveMultipart()
                     val user = usersDataSource.getUserById(session.userId) // making sure this user is existing
                     var newAvatarImageInfo: FileModel? = null
+                    val encryptor = AESEncryptor
                     multipartData.forEachPart { part ->
                         if (newAvatarImageInfo == null) {
                             when (part) {
@@ -74,10 +75,9 @@ fun Route.userRoutes(
 
                                     // image without compression
                                     val imageExtension = File(fileName).extension
-                                    val uploadedFileLocalPath = fileManager.uploadFile(
-                                        fileExtension = imageExtension,
-                                        fileNameSuffix = "-t",
-                                        fileBytes = fileBytes
+                                    val uploadedFileLocalPath = fileManager.uploadTempFile(
+                                        fileBytes = fileBytes,
+                                        fileExtension = imageExtension
                                     )
                                     val originalFile = File(uploadedFileLocalPath)
 
@@ -89,7 +89,11 @@ fun Route.userRoutes(
                                         sideSize = ImageProcessorConstants.AVATAR_PREVIEW,
                                         compressionQuality = ImageProcessorConstants.COMPRESSION_MODE_LOW_QUALITY
                                     )
+                                    // thumbnail image encryption
+                                    val thumbnailImageBytes = thumbnailImage.inputStream().use { it.readBytes() }
+                                    thumbnailImage.outputStream().use { it.write(encryptor.encrypt(thumbnailImageBytes)) }
 
+                                    // default processed image
                                     val defaultImage = File(fileManager.generateFilePath("jpg"))
                                     imageProcessor.compressImageAndCrop(
                                         inputFile = originalFile,
@@ -97,6 +101,9 @@ fun Route.userRoutes(
                                         sideSize = ImageProcessorConstants.AVATAR_DEFAULT,
                                         compressionQuality = ImageProcessorConstants.COMPRESSION_MODE_HIGH_QUALITY
                                     )
+                                    // default image encryption
+                                    val defaultImageBytes = defaultImage.inputStream().use { it.readBytes() }
+                                    defaultImage.outputStream().use { it.write(encryptor.encrypt(defaultImageBytes)) }
 
                                     val imageInfo = FileModel(
                                         name = fileName,
