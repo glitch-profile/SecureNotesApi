@@ -12,6 +12,8 @@ data class UserModel(
     val username: String,
     val profileAvatar: FileModel?,
     val syncedEncryptionKey: String?,
+    val protectedNotePassword: String? = null,
+    val protectedNoteIds: List<String> = emptyList(),
     val creationDate: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
     val activeSessions: List<String> = emptyList()
 )
