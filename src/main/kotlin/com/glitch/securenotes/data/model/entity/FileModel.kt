@@ -2,6 +2,8 @@ package com.glitch.securenotes.data.model.entity
 
 import kotlinx.serialization.Serializable
 import org.bson.codecs.pojo.annotations.BsonId
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 @Serializable
 data class FileModel(
@@ -9,5 +11,6 @@ data class FileModel(
     val name: String,
     val description: String? = null,
     val urlPath: String,
-    val previewUrlPath: String? = null
+    val previewUrlPath: String? = null,
+    val creationTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
 )

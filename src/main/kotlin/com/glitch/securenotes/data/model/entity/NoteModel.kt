@@ -13,7 +13,7 @@ data class NoteModel(
     val sharedUsersIds: List<String> = emptyList(),
     val sharedEncryptionKey: String?,
     val creationTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
-    val lastEditDate: Long? = null,
+    val lastEditTimestamp: Long? = null,
     val title: String?,
     val description: String?,
     val text: String,

@@ -43,7 +43,7 @@ fun Route.userRoutes(
 
     route("api/V1/users") {
 
-        authenticate("guest") {
+        authenticate("user") {
 
             put("/update-avatar") {
                 val session = call.sessions.get<AuthSession>()!!
@@ -57,7 +57,7 @@ fun Route.userRoutes(
                 }
                 try {
                     val multipartData = call.receiveMultipart()
-                    val user = usersDataSource.getUserById(session.userId) // making sure this user is existing
+                    val user = usersDataSource.getOneUserById(session.userId) // making sure this user is existing
                     var newAvatarImageInfo: FileModel? = null
                     val encryptor = AESEncryptor
                     multipartData.forEachPart { part ->
@@ -225,7 +225,7 @@ fun Route.userRoutes(
                     return@get
                 }
                 try {
-                    val requestedUser = usersDataSource.getUserById(requestedUserId)
+                    val requestedUser = usersDataSource.getOneUserById(requestedUserId)
                     if (session.userId == requestedUserId) {
                         val encryptionKey = if (requestedUser.syncedEncryptionKey != null) {
                             AESEncryptor.decrypt(requestedUser.syncedEncryptionKey)
@@ -350,7 +350,7 @@ fun Route.userRoutes(
                 val session = call.sessions.get<AuthSession>()!!
                 val userId = session.userId
                 try {
-                    val user = usersDataSource.getUserById(userId)
+                    val user = usersDataSource.getOneUserById(userId)
                     user.activeSessions.forEach { sessionId ->
                         authSessionStorage.delete(sessionId)
                     }
@@ -383,7 +383,7 @@ fun Route.userRoutes(
                 get {
                     val session = call.sessions.get<AuthSession>()!!
                     try {
-                        val activeSessionIds = usersDataSource.getUserById(session.userId).activeSessions
+                        val activeSessionIds = usersDataSource.getOneUserById(session.userId).activeSessions
                         val activeSessions = activeSessionIds.mapNotNull { id ->
                             try {
                                 val sessionData = authSessionStorage.get(id)
@@ -444,7 +444,7 @@ fun Route.userRoutes(
                     val session = call.sessions.get<AuthSession>()!!
                     val isIncludeClientSession = call.request.queryParameters["include-self"].toBoolean()
                     try {
-                        val userInfo = usersDataSource.getUserById(session.userId)
+                        val userInfo = usersDataSource.getOneUserById(session.userId)
                         val sessionIdsToDelete = if (!isIncludeClientSession) {
                             userInfo.activeSessions.toMutableList().apply {
                                 remove(call.sessionId<AuthSession>())

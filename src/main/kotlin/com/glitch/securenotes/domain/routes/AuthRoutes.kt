@@ -157,7 +157,7 @@ fun Route.authRoutes(
                     login = authData.login.take(20),
                     password = authData.password.take(20)
                 )
-                val user = usersDataSource.getUserById(userId)
+                val user = usersDataSource.getOneUserById(userId)
                 // do some check here
                 val sessionId = generateSessionId()
                 authSessionsManager.createSession(
@@ -272,7 +272,7 @@ fun Route.authRoutes(
                         return@post
                     }
                     val session = call.sessions.get<AuthSession>()!!
-                    val userInfo = usersDataSource.getUserById(session.userId)
+                    val userInfo = usersDataSource.getOneUserById(session.userId)
                     val newSessionId = generateSessionId()
                     val codeMemberAuthData = codeAuthenticator.getAuthMemberForCode(codeAuthData.code)
                     authSessionsManager.createSession(
