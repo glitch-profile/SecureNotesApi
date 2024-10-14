@@ -2,6 +2,8 @@ package com.glitch.securenotes.data.datasourceimpl
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.UsersDataSource
+import com.glitch.securenotes.data.exceptions.users.IncorrectSecuredNotesPasswordException
+import com.glitch.securenotes.data.exceptions.users.ProtectedNotesNotConfiguredException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.data.model.entity.UserModel
@@ -17,12 +19,12 @@ class UsersDataSourceImpl(
 
     private val users = database.getCollection<UserModel>("Users")
 
-    override suspend fun getUserById(userId: String): UserModel {
+    override suspend fun getOneUserById(userId: String): UserModel {
         val filter = Filters.eq("_id", userId)
         return users.find(filter).singleOrNull() ?: throw UserNotFoundException()
     }
 
-    override suspend fun getUsersById(userIds: List<String>): List<UserModel> {
+    override suspend fun getManyUsersById(userIds: List<String>): List<UserModel> {
         val filter = Filters.`in`("_id", userIds)
         return users.find(filter).toList()
     }
@@ -37,7 +39,7 @@ class UsersDataSourceImpl(
             profileAvatar = profileAvatar,
             syncedEncryptionKey = syncedEncryptionKey
         )
-        val result = users.insertOne(userModel)
+        users.insertOne(userModel)
         return userModel
     }
 
@@ -51,7 +53,7 @@ class UsersDataSourceImpl(
     override suspend fun updateUserById(userId: String, newUserModel: UserModel): Boolean {
         val filter = Filters.eq("_id", userId)
         val result = users.replaceOne(filter, newUserModel)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -68,7 +70,7 @@ class UsersDataSourceImpl(
         val protectedEncryptionKey = AESEncryptor.encrypt(encryptionKey)
         val update = Updates.set(UserModel::syncedEncryptionKey.name, protectedEncryptionKey)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -76,7 +78,7 @@ class UsersDataSourceImpl(
         val filter = Filters.eq("_id", userId)
         val update = Updates.set(UserModel::syncedEncryptionKey.name, null)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -84,7 +86,7 @@ class UsersDataSourceImpl(
         val filter = Filters.eq("_id", userId)
         val update = Updates.set(UserModel::username.name, newUsername)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -101,7 +103,7 @@ class UsersDataSourceImpl(
         )
         val update = Updates.set(UserModel::profileAvatar.name, imageInfo)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -109,15 +111,66 @@ class UsersDataSourceImpl(
         val filter = Filters.eq("_id", userId)
         val update = Updates.set(UserModel::profileAvatar.name, null)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
+    }
+
+    override suspend fun updateUserProtectedNotesPassword(
+        userId: String,
+        oldPassword: String?,
+        newPassword: String
+    ): Boolean {
+        val user = getOneUserById(userId)
+        val oldPasswordEncrypted = if (oldPassword != null) {
+            AESEncryptor.encrypt(oldPassword)
+        } else null
+        if (user.protectedNotePassword == oldPasswordEncrypted) {
+            val newPasswordEncrypted = AESEncryptor.encrypt(newPassword)
+            val filter = Filters.eq("_id", userId)
+            val update = Updates.set(UserModel::protectedNotePassword.name, newPasswordEncrypted)
+            val result = users.updateOne(filter, update)
+            return result.modifiedCount != 0L
+        } else throw IncorrectSecuredNotesPasswordException()
+    }
+
+    override suspend fun resetUserProtectedNotesPassword(userId: String): Boolean {
+        val filter = Filters.eq("_id", userId)
+        val update = Updates.unset(UserModel::protectedNotePassword.name)
+        val result = users.updateOne(filter, update)
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
+        else throw UserNotFoundException()
+    }
+
+    override suspend fun addNoteToProtected(userId: String, noteId: String): Boolean {
+        val user = getOneUserById(userId)
+        if (user.protectedNotePassword != null) {
+            val filter = Filters.eq("_id", userId)
+            val update = Updates.addToSet(UserModel::protectedNoteIds.name, noteId)
+            val result = users.updateOne(filter, update)
+            if (result.matchedCount != 0L) return result.modifiedCount != 0L
+            else throw UserNotFoundException()
+        } else throw ProtectedNotesNotConfiguredException()
+
+    }
+
+    override suspend fun removeNoteFromProtected(userId: String, noteId: String, protectedNotesPassword: String): Boolean {
+        val user = getOneUserById(userId)
+        if (user.protectedNotePassword != null) {
+            val passwordEncrypted = AESEncryptor.encrypt(protectedNotesPassword)
+            if (passwordEncrypted == user.protectedNotePassword) {
+                val filter = Filters.eq("_id", userId)
+                val update = Updates.pull(UserModel::protectedNoteIds.name, noteId)
+                val result = users.updateOne(filter, update)
+                return result.modifiedCount != 0L
+            } else throw IncorrectSecuredNotesPasswordException()
+        } else throw ProtectedNotesNotConfiguredException()
     }
 
     override suspend fun addActiveSessionId(userId: String, sessionId: String): Boolean {
         val filter = Filters.eq("_id", userId)
         val update = Updates.addToSet(UserModel::activeSessions.name, sessionId)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -125,7 +178,7 @@ class UsersDataSourceImpl(
         val filter = Filters.eq("_id", userId)
         val update = Updates.pull(UserModel::activeSessions.name, sessionId)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 
@@ -133,7 +186,7 @@ class UsersDataSourceImpl(
         val filter = Filters.eq("_id", userId)
         val update = Updates.pullAll(UserModel::activeSessions.name, sessionsIds)
         val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return true
+        if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
 }
