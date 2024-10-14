@@ -2,8 +2,6 @@ package com.glitch.floweryapi.domain.utils.encryptor
 
 import io.ktor.server.config.*
 import io.ktor.util.*
-import io.ktor.utils.io.charsets.Charsets
-import java.nio.charset.Charset
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
