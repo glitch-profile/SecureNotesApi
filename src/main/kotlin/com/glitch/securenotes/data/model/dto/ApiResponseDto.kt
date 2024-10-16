@@ -22,7 +22,7 @@ sealed class ApiResponseDto<T> {
     @Serializable
     data class Error<T>(
         override val apiErrorCode: Int = ApiErrorCode.UNKNOWN_ERROR,
-        override val message: String = "Unknown error",
+        override val message: String = ApiErrorCode::UNKNOWN_ERROR.name,
         override val data: T? = null
     ): ApiResponseDto<T>() {
         override val status = false

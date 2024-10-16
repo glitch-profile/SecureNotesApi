@@ -126,10 +126,7 @@ fun Route.authRoutes(
                 )
             } catch (e: Exception) {
                 call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.UNKNOWN_ERROR,
-                        message = e.message ?: "Unable to create guest session"
-                    )
+                    ApiResponseDto.Error<Unit>()
                 )
             }
         }
@@ -184,7 +181,7 @@ fun Route.authRoutes(
                 call.respond(
                     ApiResponseDto.Error<Unit>(
                         apiErrorCode = ApiErrorCode.AUTH_DATA_INCORRECT,
-                        message = "Credentials not found"
+                        message = ApiErrorCode::AUTH_DATA_INCORRECT.name
                     )
                 )
             } catch (e: UserNotFoundException) {
@@ -192,7 +189,7 @@ fun Route.authRoutes(
                 call.respond(
                     ApiResponseDto.Error<Unit>(
                         apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                        message = "User not found"
+                        message = ApiErrorCode::USER_NOT_FOUND.name
                     )
                 )
             }
@@ -257,7 +254,7 @@ fun Route.authRoutes(
                 call.respond(
                     ApiResponseDto.Error<Unit>(
                         apiErrorCode = ApiErrorCode.CREDENTIALS_ALREADY_IN_USE,
-                        message = "Credentials already in use"
+                        message = ApiErrorCode::CREDENTIALS_ALREADY_IN_USE.name
                     )
                 )
             }
@@ -293,14 +290,14 @@ fun Route.authRoutes(
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "User with this id not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 } catch (e: CodeNotFoundException) {
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.AUTH_CODE_NOT_FOUND,
-                            message = "This code not found or expired"
+                            message = ApiErrorCode::AUTH_CODE_NOT_FOUND.name
                         )
                     )
                 }
