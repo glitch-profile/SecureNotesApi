@@ -2,11 +2,13 @@ package com.glitch.securenotes.domain.routes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
+import com.glitch.securenotes.data.datasource.NotesDataSource
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.IncorrectCredentialsException
 import com.glitch.securenotes.data.exceptions.auth.SessionNotFoundException
+import com.glitch.securenotes.data.exceptions.users.IncorrectSecuredNotesPasswordException
 import com.glitch.securenotes.data.exceptions.users.UnknownAvatarFormatException
 import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
@@ -36,6 +38,7 @@ private const val MAX_FILE_SIZE = 5_242_880 // 5 MB in bytes
 fun Route.userRoutes(
     usersDataSource: UsersDataSource,
     userCredentialsDataSource: UserCredentialsDataSource,
+    notesDataSource: NotesDataSource,
     authSessionStorage: AuthSessionStorage,
     fileManager: FileManager,
     imageProcessor: ImageProcessor
@@ -143,20 +146,22 @@ fun Route.userRoutes(
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.FILE_EXTENSION_UNKNOWN,
-                            message = "This file format is not supported by this endpoint"
+                            message = ApiErrorCode::FILE_EXTENSION_UNKNOWN.name
                         )
                     )
                 } catch (e: UserNotFoundException) {
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "User not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 }
             }
 
             route("/sync") {
+
+                // TODO: Add syncing and deleting of all notes
 
                 post("/enable") {
                     val session = call.sessions.get<AuthSession>()!!
@@ -182,7 +187,7 @@ fun Route.userRoutes(
                         call.respond(
                             ApiResponseDto.Error<Unit>(
                                 apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                                message = "User not found"
+                                message = ApiErrorCode::USER_NOT_FOUND.name
                             )
                         )
                     }
@@ -210,7 +215,7 @@ fun Route.userRoutes(
                         call.respond(
                             ApiResponseDto.Error<Unit>(
                                 apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                                message = "User not found"
+                                message = ApiErrorCode::USER_NOT_FOUND.name
                             )
                         )
                     }
@@ -256,7 +261,7 @@ fun Route.userRoutes(
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "User not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 }
@@ -289,7 +294,7 @@ fun Route.userRoutes(
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "User not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 }
@@ -326,24 +331,89 @@ fun Route.userRoutes(
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "User not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 } catch (e: CredentialsNotFoundException) {
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "User not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 } catch (e: IncorrectCredentialsException) {
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.AUTH_DATA_INCORRECT,
-                            message = "Incorrect password"
+                            message = ApiErrorCode::AUTH_DATA_INCORRECT.name
                         )
                     )
                 }
+            }
+
+            route("/protected-notes") {
+
+                put("/update-password") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    val passwordData = call.receiveNullable<UserUpdatePasswordDto>() ?: kotlin.run {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@put
+                    }
+                    try {
+                        val newPasswordFormatted = passwordData.newPassword
+                            .filter { it.isDigit() }
+                            .take(4)
+                        val result = usersDataSource.updateUserProtectedNotesPassword(
+                            userId = session.userId,
+                            oldPassword = passwordData.oldPassword,
+                            newPassword = newPasswordFormatted
+                        )
+                        if (result) {
+                            call.respond(
+                                ApiResponseDto.Success(
+                                    data = null,
+                                    message = "Password updated"
+                                )
+                            )
+                        } else {
+                            call.respond(
+                                ApiResponseDto.Error<Unit>()
+                            )
+                        }
+                    } catch (e: UserNotFoundException) {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                                message = ApiErrorCode::USER_NOT_FOUND.name
+                            )
+                        )
+                    } catch (e: IncorrectSecuredNotesPasswordException) {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.PROTECTED_NOTES_PASSWORD_INCORRECT,
+                                message = ApiErrorCode::PROTECTED_NOTES_PASSWORD_INCORRECT.name
+                            )
+                        )
+                    }
+                }
+
+                put("/reset") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    try {
+                        val user = usersDataSource.getOneUserById(session.userId)
+                        val usersProtectedNotes = user.protectedNoteIds
+                        usersDataSource.resetUserProtectedNotesPassword(user.id)
+                        // TODO: remove protected notes and remove this user from protected shared notes
+                    } catch (e: UserNotFoundException) {
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
+                                message = ApiErrorCode::USER_NOT_FOUND.name
+                            )
+                        )
+                    }
+                }
+
             }
 
             delete("/delete") {
@@ -360,7 +430,7 @@ fun Route.userRoutes(
                         call.respond(
                             ApiResponseDto.Success(
                                 data = null,
-                                message = "User deleted. We will miss you"
+                                message = "User deleted"
                             )
                         )
                     } else {
@@ -372,7 +442,7 @@ fun Route.userRoutes(
                     call.respond(
                         ApiResponseDto.Error<Unit>(
                             apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = "This user not found"
+                            message = ApiErrorCode::USER_NOT_FOUND.name
                         )
                     )
                 }
@@ -406,7 +476,7 @@ fun Route.userRoutes(
                         call.respond(
                             ApiResponseDto.Error<Unit>(
                                 apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                                message = "User not found"
+                                message = ApiErrorCode::USER_NOT_FOUND.name
                             )
                         )
                     }
@@ -428,16 +498,26 @@ fun Route.userRoutes(
                             authSessionStorage.delete(sessionId)
                             call.respond(
                                 ApiResponseDto.Success(
-                                    data = null
+                                    data = null,
+                                    message = "Session deleted"
                                 )
                             )
                         } else {
-                            call.respond(HttpStatusCode.Forbidden)
+                            call.respond(
+                                ApiResponseDto.Error<Unit>(
+                                    apiErrorCode = ApiErrorCode.NO_PERMISSIONS,
+                                    message = ApiErrorCode::NO_PERMISSIONS.name
+                                )
+                            )
                         }
                     } catch (e: SessionNotFoundException) {
-                        call.respond(HttpStatusCode.NotFound)
+                        call.respond(
+                            ApiResponseDto.Error<Unit>(
+                                apiErrorCode = ApiErrorCode.AUTH_SESSION_NOT_FOUND,
+                                message = ApiErrorCode::AUTH_SESSION_NOT_FOUND.name
+                            )
+                        )
                     }
-                    // TODO: Replace with api error codes
                 }
 
                 post("/destroy") {
@@ -472,7 +552,7 @@ fun Route.userRoutes(
                         call.respond(
                             ApiResponseDto.Error<Unit>(
                                 apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                                message = "User not found"
+                                message = ApiErrorCode::USER_NOT_FOUND.name
                             )
                         )
                     }

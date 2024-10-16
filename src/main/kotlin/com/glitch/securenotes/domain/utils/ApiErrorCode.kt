@@ -7,10 +7,12 @@ object ApiErrorCode {
     const val USER_NOT_FOUND = 103
     // FILES ERROR CODES - 11X
     const val FILE_EXTENSION_UNKNOWN = 111
-    // AUTH ERRORS CODES - 21X
+    // AUTH ERRORS CODES - 20X
     const val AUTH_DATA_INCORRECT = 201
     const val CREDENTIALS_ALREADY_IN_USE = 202
     const val AUTH_CODE_NOT_FOUND = 203
     const val AUTH_SESSION_NOT_FOUND = 204
+    // USERS ERROR CODES - 21X
+    const val PROTECTED_NOTES_PASSWORD_INCORRECT = 211
 
 }
