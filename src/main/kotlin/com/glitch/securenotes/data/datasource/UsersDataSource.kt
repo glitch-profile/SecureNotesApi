@@ -13,21 +13,12 @@ interface UsersDataSource {
 
     suspend fun addUser(
         userName: String,
-        profileAvatar: FileModel? = null,
-        syncedEncryptionKey: String? = null
+        profileAvatar: FileModel? = null
     ): UserModel
 
     suspend fun deleteUserById(userId: String): Boolean
 
     suspend fun updateUserById(userId: String, newUserModel: UserModel): Boolean
-
-    // ENCRYPTION KEY
-
-    suspend fun getUserEncryptionKey(userId: String): String?
-
-    suspend fun enableEncryptionKeySync(userId: String, encryptionKey: String): Boolean
-
-    suspend fun disableEncryptionKeySync(userId: String): Boolean
 
     // GENERAL USER INFO
 

@@ -159,70 +159,6 @@ fun Route.userRoutes(
                 }
             }
 
-            route("/sync") {
-
-                // TODO: Add syncing and deleting of all notes
-
-                post("/enable") {
-                    val session = call.sessions.get<AuthSession>()!!
-                    val newEncryptionCode = AESEncryptor.generateSecret()
-                    try {
-                        val result = usersDataSource.enableEncryptionKeySync(
-                            userId = session.userId,
-                            encryptionKey = newEncryptionCode
-                        )
-                        if (result) {
-                            call.respond(
-                                ApiResponseDto.Success(
-                                    data = null,
-                                    message = "Sync enabled"
-                                )
-                            )
-                        } else {
-                            call.respond(
-                                ApiResponseDto.Error<Unit>()
-                            )
-                        }
-                    } catch (e: UserNotFoundException) {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>(
-                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                                message = ApiErrorCode::USER_NOT_FOUND.name
-                            )
-                        )
-                    }
-                }
-
-                post("/disable") {
-                    val session = call.sessions.get<AuthSession>()!!
-                    try {
-                        val result = usersDataSource.disableEncryptionKeySync(
-                            userId = session.userId
-                        )
-                        if (result) {
-                            call.respond(
-                                ApiResponseDto.Success(
-                                    data = null,
-                                    message = "Sync enabled"
-                                )
-                            )
-                        } else {
-                            call.respond(
-                                ApiResponseDto.Error<Unit>()
-                            )
-                        }
-                    } catch (e: UserNotFoundException) {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>(
-                                apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                                message = ApiErrorCode::USER_NOT_FOUND.name
-                            )
-                        )
-                    }
-                }
-
-            }
-
             get("/{user_id}") {
                 val session = call.sessions.get<AuthSession>()!!
                 val requestedUserId = call.request.pathVariables["user_id"] ?: kotlin.run {
@@ -232,15 +168,11 @@ fun Route.userRoutes(
                 try {
                     val requestedUser = usersDataSource.getOneUserById(requestedUserId)
                     if (session.userId == requestedUserId) {
-                        val encryptionKey = if (requestedUser.syncedEncryptionKey != null) {
-                            AESEncryptor.decrypt(requestedUser.syncedEncryptionKey)
-                        } else null
                         call.respond(
                             ApiResponseDto.Success(
                                 data = UserInfoDto(
                                     id = requestedUser.id,
                                     username = requestedUser.username,
-                                    encryptionKey = encryptionKey,
                                     profileImage = requestedUser.profileAvatar,
                                     accountCreationTimestamp = requestedUser.creationDate
                                 )

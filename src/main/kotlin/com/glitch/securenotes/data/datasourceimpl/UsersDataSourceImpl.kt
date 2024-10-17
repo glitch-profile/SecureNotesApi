@@ -32,12 +32,10 @@ class UsersDataSourceImpl(
     override suspend fun addUser(
         userName: String,
         profileAvatar: FileModel?,
-        syncedEncryptionKey: String?
     ): UserModel {
         val userModel = UserModel(
             username = userName,
-            profileAvatar = profileAvatar,
-            syncedEncryptionKey = syncedEncryptionKey
+            profileAvatar = profileAvatar
         )
         users.insertOne(userModel)
         return userModel
@@ -53,31 +51,6 @@ class UsersDataSourceImpl(
     override suspend fun updateUserById(userId: String, newUserModel: UserModel): Boolean {
         val filter = Filters.eq("_id", userId)
         val result = users.replaceOne(filter, newUserModel)
-        if (result.matchedCount != 0L) return result.modifiedCount != 0L
-        else throw UserNotFoundException()
-    }
-
-    override suspend fun getUserEncryptionKey(userId: String): String? {
-        val filter = Filters.eq("_id", userId)
-        val userModel = users.find(filter).singleOrNull() ?: throw UserNotFoundException()
-        return if (userModel.syncedEncryptionKey != null) {
-            AESEncryptor.decrypt(userModel.syncedEncryptionKey)
-        } else null
-    }
-
-    override suspend fun enableEncryptionKeySync(userId: String, encryptionKey: String): Boolean {
-        val filter = Filters.eq("_id", userId)
-        val protectedEncryptionKey = AESEncryptor.encrypt(encryptionKey)
-        val update = Updates.set(UserModel::syncedEncryptionKey.name, protectedEncryptionKey)
-        val result = users.updateOne(filter, update)
-        if (result.matchedCount != 0L) return result.modifiedCount != 0L
-        else throw UserNotFoundException()
-    }
-
-    override suspend fun disableEncryptionKeySync(userId: String): Boolean {
-        val filter = Filters.eq("_id", userId)
-        val update = Updates.set(UserModel::syncedEncryptionKey.name, null)
-        val result = users.updateOne(filter, update)
         if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
     }
@@ -135,7 +108,10 @@ class UsersDataSourceImpl(
 
     override suspend fun resetUserProtectedNotesPassword(userId: String): Boolean {
         val filter = Filters.eq("_id", userId)
-        val update = Updates.unset(UserModel::protectedNotePassword.name)
+        val update = Updates.combine(
+            Updates.unset(UserModel::protectedNotePassword.name),
+            Updates.set(UserModel::protectedNoteIds.name, emptyList<String>())
+        )
         val result = users.updateOne(filter, update)
         if (result.matchedCount != 0L) return result.modifiedCount != 0L
         else throw UserNotFoundException()
