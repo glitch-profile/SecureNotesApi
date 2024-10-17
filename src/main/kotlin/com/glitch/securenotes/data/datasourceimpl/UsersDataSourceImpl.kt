@@ -44,8 +44,7 @@ class UsersDataSourceImpl(
     override suspend fun deleteUserById(userId: String): Boolean {
         val filter = Filters.eq("_id", userId)
         val result = users.deleteOne(filter)
-        if (result.deletedCount != 0L) return true
-        else throw UserNotFoundException()
+        return result.deletedCount != 0L
     }
 
     override suspend fun updateUserById(userId: String, newUserModel: UserModel): Boolean {
