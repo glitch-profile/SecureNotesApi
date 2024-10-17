@@ -10,8 +10,9 @@ data class NoteModel(
     @BsonId
     val id: String = BsonId().toString(),
     val creatorId: String,
-    val sharedUsersIds: List<String> = emptyList(),
-    val sharedEncryptionKey: String?,
+    val encryptionKey: String,
+    val isSharing: Boolean = false,
+    val sharedEditorsUsersIds: List<String> = emptyList(),
     val creationTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
     val lastEditTimestamp: Long? = null,
     val title: String?,

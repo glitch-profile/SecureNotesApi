@@ -10,15 +10,24 @@ interface NotesDataSource {
 
     suspend fun getNotesForUser(
         userId: String,
+        excludedNotesId: List<String>,
         page: Int = 0,
         limit: Int = -1
     ): List<NoteModel>
 
     suspend fun getProtectedNotesForUser(
         userId: String,
-        securedNotesPassword: String,
+        includedNotesIds: List<String>,
         page: Int = 0,
         limit: Int = -1
+    ): List<NoteModel>
+
+    suspend fun getNotesForUser(
+        userId: String,
+        page: Int = 0,
+        limit: Int = -1,
+        onlyIncludedIds: List<String> = emptyList(),
+        excludeIds: List<String> = emptyList()
     ): List<NoteModel>
 
     suspend fun getOneNoteById(noteId: String): NoteModel
@@ -47,9 +56,9 @@ interface NotesDataSource {
 
     // NOTES SHARING
 
-    suspend fun enableNoteSharing(noteId: String, oldEncryptionKey: String): Boolean
+    suspend fun enableNoteSharing(noteId: String, requestedUserId: String): Boolean
 
-    suspend fun disableNoteSharing(noteId: String, ownerEncryptionKey: String): Boolean
+    suspend fun disableNoteSharing(noteId: String, requestedUserId: String): Boolean
 
     suspend fun addUserToSharedIds(noteId: String, userId: String): Boolean
 
@@ -57,20 +66,28 @@ interface NotesDataSource {
 
     suspend fun removeUserFromSharedIds(noteIds: List<String>, userId: String): Boolean
 
-    suspend fun removeUserFromAllSharingNotes(userId: String): Boolean
+    suspend fun removeUsersFromSharedIds(noteId: String, userIds: List<String>): Boolean
+
+    suspend fun removeUserFromAllSharedNotes(userId: String): Boolean
 
     // DELETE
 
-    suspend fun deleteOneNoteById(noteId: String)
+    suspend fun deleteOneNoteById(noteId: String): Boolean
 
-    suspend fun deleteManyNotesById(noteIds: List<String>)
+    suspend fun deleteManyNotesById(noteIds: List<String>): Boolean
 
-    suspend fun deleteAllNotesForUser(userId: String)
+    suspend fun deleteAllNotesForUser(userId: String): Boolean
 
     // including created and shared notes
     suspend fun deleteNotesForUser(
         userId: String,
         noteIds: String
-    )
+    ): Boolean
+
+    // UTILS
+
+    fun encryptNote(note: NoteModel, encryptionKey: String): NoteModel
+
+    fun decryptNote(note: NoteModel, decryptionKey: String): NoteModel
 
 }
