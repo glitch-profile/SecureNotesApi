@@ -54,7 +54,27 @@ interface NotesDataSource {
 
     // UPDATE
 
-    // NOTES SHARING
+    // info
+
+    suspend fun updateNoteTitle(
+        noteId: String,
+        editorUserId: String,
+        newTitle: String?
+    ): Boolean
+
+    suspend fun updateNoteDescription(
+        noteId: String,
+        editorUserId: String,
+        newDescription: String?
+    ): Boolean
+
+    suspend fun updateNoteText(
+        noteId: String,
+        editorUserId: String,
+        newText: String
+    ): Boolean
+
+    // note sharing
 
     suspend fun enableNoteSharing(noteId: String, requestedUserId: String): Boolean
 
@@ -64,7 +84,7 @@ interface NotesDataSource {
 
     suspend fun removeUserFromSharedIds(noteId: String, userId: String): Boolean
 
-    suspend fun removeUserFromSharedIds(noteIds: List<String>, userId: String): Boolean
+//    suspend fun removeUserFromSharedIds(noteIds: List<String>, userId: String): Boolean
 
     suspend fun removeUsersFromSharedIds(noteId: String, userIds: List<String>): Boolean
 
@@ -76,13 +96,17 @@ interface NotesDataSource {
 
     suspend fun deleteManyNotesById(noteIds: List<String>): Boolean
 
-    suspend fun deleteAllNotesForUser(userId: String): Boolean
+    suspend fun deleteNoteForUser(userId: String, noteId: String): Boolean
 
     // including created and shared notes
     suspend fun deleteNotesForUser(
         userId: String,
         noteIds: String
     ): Boolean
+
+    suspend fun deleteAllUserCreatedNotes(userId: String): Boolean
+
+    suspend fun deleteAllNotesForUser(userId: String): Boolean
 
     // UTILS
 

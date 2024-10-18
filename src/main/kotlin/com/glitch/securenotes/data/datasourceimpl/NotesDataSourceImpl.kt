@@ -2,6 +2,7 @@ package com.glitch.securenotes.data.datasourceimpl
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.NotesDataSource
+import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
 import com.glitch.securenotes.data.model.entity.NoteModel
 import com.mongodb.client.model.Filters
@@ -11,6 +12,8 @@ import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 import org.bson.conversions.Bson
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 class NotesDataSourceImpl(
     db: MongoDatabase
@@ -174,6 +177,62 @@ class NotesDataSourceImpl(
     }
 
     // UPDATE
+
+    // info
+    override suspend fun updateNoteTitle(noteId: String, editorUserId: String, newTitle: String?): Boolean {
+        val note = getOneNoteById(noteId)
+        if (note.creatorId == editorUserId) {
+            val filter = Filters.eq("_id", noteId) // only owner can update title
+            val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
+            val newEncryptedTitle = if (newTitle!= null) {
+                AESEncryptor.encrypt(newTitle, encryptionKey)
+            } else null
+            val currentTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+            val update = Updates.combine(
+                Updates.set(NoteModel::title.name, newEncryptedTitle),
+                Updates.set(NoteModel::lastEditTimestamp.name, currentTimestamp)
+            )
+            return notes.updateOne(filter, update)
+                .modifiedCount != 0L
+        } else throw NoPermissionForEditException()
+    }
+
+    override suspend fun updateNoteDescription(noteId: String, editorUserId: String, newDescription: String?): Boolean {
+        val note = getOneNoteById(noteId)
+        if (note.creatorId == editorUserId) {
+            val filter = Filters.eq("_id", noteId) // only owner can update title
+            val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
+            val newEncryptedDescription = if (newDescription!= null) {
+                AESEncryptor.encrypt(newDescription, encryptionKey)
+            } else null
+            val currentTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+            val update = Updates.combine(
+                Updates.set(NoteModel::description.name, newEncryptedDescription),
+                Updates.set(NoteModel::lastEditTimestamp.name, currentTimestamp)
+            )
+            return notes.updateOne(filter, update)
+                .modifiedCount != 0L
+        } else throw NoPermissionForEditException()
+    }
+
+    override suspend fun updateNoteText(noteId: String, editorUserId: String, newText: String): Boolean {
+        val note = getOneNoteById(noteId)
+        if (note.creatorId == editorUserId || note.sharedEditorsUsersIds.contains(editorUserId)) {
+            val filter = Filters.eq("_id", noteId)
+            val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
+            val newEncryptedText = AESEncryptor.encrypt(newText, encryptionKey)
+            val currentTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+            val update = Updates.combine(
+                Updates.set(NoteModel::title.name, newEncryptedText),
+                Updates.set(NoteModel::lastEditTimestamp.name, currentTimestamp)
+            )
+            return notes.updateOne(filter, update)
+                .modifiedCount != 0L
+        } else throw NoPermissionForEditException()
+    }
+
+    // note sharing
+
     override suspend fun enableNoteSharing(noteId: String, requestedUserId: String): Boolean {
         val filter = Filters.and(
             Filters.eq("_id", noteId),
@@ -219,15 +278,15 @@ class NotesDataSourceImpl(
         return result.modifiedCount != 0L
     }
 
-    override suspend fun removeUserFromSharedIds(noteIds: List<String>, userId: String): Boolean {
-        val filter = Filters.and(
-            Filters.`in`("_id", noteIds),
-            Filters.ne(NoteModel::isSharing.name, null)
-        )
-        val update = Updates.pull(NoteModel::sharedEditorsUsersIds.name, userId)
-        val result = notes.updateMany(filter, update)
-        return result.modifiedCount != 0L
-    }
+//    override suspend fun removeUserFromSharedIds(noteIds: List<String>, userId: String): Boolean {
+//        val filter = Filters.and(
+//            Filters.`in`("_id", noteIds),
+//            Filters.ne(NoteModel::isSharing.name, null)
+//        )
+//        val update = Updates.pull(NoteModel::sharedEditorsUsersIds.name, userId)
+//        val result = notes.updateMany(filter, update)
+//        return result.modifiedCount != 0L
+//    }
 
     override suspend fun removeUsersFromSharedIds(noteId: String, userIds: List<String>): Boolean {
         val filter = Filters.and(
@@ -262,13 +321,22 @@ class NotesDataSourceImpl(
         return result.deletedCount != 0L
     }
 
-    // its caller responsibility to delete resource files from this notes
-    override suspend fun deleteAllNotesForUser(userId: String): Boolean {
-        val resultForSharedNotes = removeUserFromAllSharedNotes(userId)
-        val userCreatedNotesFilter = Filters.eq(NoteModel::creatorId.name, userId)
-        val resultForUserCreatedNotes = notes.deleteMany(userCreatedNotesFilter)
+    // its caller responsibility to delete files from this note
+    override suspend fun deleteNoteForUser(userId: String, noteId: String): Boolean {
+        val createdNoteFilter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.eq(NoteModel::creatorId.name, userId)
+        )
+        val sharedNoteFilter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.ne(NoteModel::creatorId.name, userId)
+        )
+        val sharedNoteUpdate = Updates.pull(NoteModel::sharedEditorsUsersIds.name, userId)
+        val sharedNoteResult = notes.updateOne(sharedNoteFilter, sharedNoteUpdate)
+            .modifiedCount != 0L
+        val createdNoteResult = notes.deleteOne(createdNoteFilter)
             .deletedCount != 0L
-        return resultForSharedNotes || resultForUserCreatedNotes
+        return sharedNoteResult || createdNoteResult
     }
 
     // its caller responsibility to delete resource files from this notes
@@ -287,6 +355,20 @@ class NotesDataSourceImpl(
         val sharedNotesResult = notes.updateMany(sharedNotesFilter, sharedNotesUpdate)
             .modifiedCount != 0L
         return createdNotesResult || sharedNotesResult
+    }
+
+    override suspend fun deleteAllUserCreatedNotes(userId: String): Boolean {
+        val userCreatedNotesFilter = Filters.eq(NoteModel::creatorId.name, userId)
+        val resultForUserCreatedNotes = notes.deleteMany(userCreatedNotesFilter)
+            .deletedCount != 0L
+        return resultForUserCreatedNotes
+    }
+
+    // its caller responsibility to delete resource files from this notes
+    override suspend fun deleteAllNotesForUser(userId: String): Boolean {
+        val sharedNotesResult = removeUserFromAllSharedNotes(userId)
+        val createdNotesResult = deleteAllUserCreatedNotes(userId)
+        return sharedNotesResult || createdNotesResult
     }
 
     // UTILS
