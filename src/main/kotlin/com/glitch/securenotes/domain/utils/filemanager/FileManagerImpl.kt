@@ -12,7 +12,9 @@ class FileManagerImpl: FileManager {
     override fun generateFilePath(fileExtension: String, fileNameSuffix: String): String {
         return if (fileExtension.isBlank()) throw UnknownExtensionException()
         else {
-            "${getResourcePath()}/${generateDirectoryPath()}$fileNameSuffix.$fileExtension"
+            val isExtensionWithDot = fileExtension.startsWith('.')
+            "${getResourcePath()}/${generateDirectoryPath()}$fileNameSuffix" + if (isExtensionWithDot)
+                fileExtension else ".$fileExtension"
         }
     }
 
@@ -64,15 +66,34 @@ class FileManagerImpl: FileManager {
     }
 
     override fun toLocalPath(urlPath: String): String {
-        return "${getResourcePath()}/$urlPath"
+        val extension = File(urlPath).extension
+        if (extension.isEmpty()) {
+            val longUrlPath = urlPath
+                .chunkedSequence(2)
+                .joinToString("/")
+            return "${getResourcePath()}/$longUrlPath"
+        } else {
+            val longUrlPath = urlPath.dropLast(extension.length + 1)
+                .chunkedSequence(2)
+                .joinToString("/")
+            return "${getResourcePath()}/$longUrlPath.$extension"
+        }
     }
 
     override fun toUrlPath(localPath: String): String {
         val resourcePath = getResourcePath()
-        return localPath.replace(
+        val urlLongPath =  localPath.replace(
             oldValue = resourcePath,
             newValue = ""
         )
+        val extension = File(urlLongPath).extension
+        if (extension.isEmpty()) {
+            return urlLongPath.filterNot { it == '/' }
+        } else {
+            val urlCompact =  urlLongPath.dropLast(extension.length + 1) // including the dot
+                .filterNot { it == '/' }
+            return "$urlCompact.$extension"
+        }
     }
 
     private fun getResourcePath() = if (isPackedForExternal) {
@@ -83,7 +104,7 @@ class FileManagerImpl: FileManager {
 
     private fun generateDirectoryPath(): String {
         val randomString = UUID.randomUUID().toString().filterNot { it == '-' }
-        val directoryTree = randomString.chunked(2)
+        val directoryTree = randomString.chunkedSequence(2)
             .joinToString("/")
         return directoryTree
     }
