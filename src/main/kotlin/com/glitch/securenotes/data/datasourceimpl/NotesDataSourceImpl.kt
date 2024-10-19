@@ -116,15 +116,40 @@ class NotesDataSourceImpl(
         }
     }
 
-    override suspend fun getOneNoteById(noteId: String): NoteModel {
+    override suspend fun getNoteById(noteId: String): NoteModel {
         val filter = Filters.eq("_id", noteId)
         val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
         return result
     }
 
-    override suspend fun getManyNotesById(noteIds: List<String>): List<NoteModel> {
+    override suspend fun getNoteById(noteId: String, requestedUserId: String): NoteModel {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, requestedUserId),
+                Filters.`in`(NoteModel::sharedEditorsUsersIds.name, requestedUserId)
+            )
+        )
+        return notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
+    }
+
+    override suspend fun getNotesById(noteIds: List<String>): List<NoteModel> {
         val filter = Filters.`in`("_id", noteIds)
-        val result = notes.find(filter).toList()
+        val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
+            .toList()
+        return result
+    }
+
+    override suspend fun getNotesById(noteIds: List<String>, requestedUserId: String): List<NoteModel> {
+        val filter = Filters.and(
+            Filters.`in`("_id", noteIds),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, requestedUserId),
+                Filters.`in`(NoteModel::sharedEditorsUsersIds.name, requestedUserId)
+            )
+        )
+        val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
+            .toList()
         return result
     }
 
@@ -180,7 +205,7 @@ class NotesDataSourceImpl(
 
     // info
     override suspend fun updateNoteTitle(noteId: String, editorUserId: String, newTitle: String?): Boolean {
-        val note = getOneNoteById(noteId)
+        val note = getNoteById(noteId)
         if (note.creatorId == editorUserId) {
             val filter = Filters.eq("_id", noteId) // only owner can update title
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
@@ -198,7 +223,7 @@ class NotesDataSourceImpl(
     }
 
     override suspend fun updateNoteDescription(noteId: String, editorUserId: String, newDescription: String?): Boolean {
-        val note = getOneNoteById(noteId)
+        val note = getNoteById(noteId)
         if (note.creatorId == editorUserId) {
             val filter = Filters.eq("_id", noteId) // only owner can update title
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
@@ -216,7 +241,7 @@ class NotesDataSourceImpl(
     }
 
     override suspend fun updateNoteText(noteId: String, editorUserId: String, newText: String): Boolean {
-        val note = getOneNoteById(noteId)
+        val note = getNoteById(noteId)
         if (note.creatorId == editorUserId || note.sharedEditorsUsersIds.contains(editorUserId)) {
             val filter = Filters.eq("_id", noteId)
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
@@ -308,14 +333,14 @@ class NotesDataSourceImpl(
     // DELETE
 
     // its caller responsibility to delete resource files from this notes
-    override suspend fun deleteOneNoteById(noteId: String): Boolean {
+    override suspend fun deleteNoteById(noteId: String): Boolean {
         val filter = Filters.eq("_id", noteId)
         val result = notes.deleteOne(filter)
         return result.deletedCount != 0L
     }
 
     // its caller responsibility to delete resource files from this notes
-    override suspend fun deleteManyNotesById(noteIds: List<String>): Boolean {
+    override suspend fun deleteNotesById(noteIds: List<String>): Boolean {
         val filter = Filters.`in`("_id", noteIds)
         val result = notes.deleteMany(filter)
         return result.deletedCount != 0L

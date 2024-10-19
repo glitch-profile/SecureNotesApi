@@ -1,5 +1,6 @@
 package com.glitch.securenotes.data.datasource
 
+import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.data.model.entity.NoteModel
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -30,9 +31,13 @@ interface NotesDataSource {
         excludeIds: List<String> = emptyList()
     ): List<NoteModel>
 
-    suspend fun getOneNoteById(noteId: String): NoteModel
+    suspend fun getNoteById(noteId: String): NoteModel
 
-    suspend fun getManyNotesById(noteIds: List<String>): List<NoteModel>
+    suspend fun getNoteById(noteId: String, requestedUserId: String): NoteModel
+
+    suspend fun getNotesById(noteIds: List<String>): List<NoteModel>
+
+    suspend fun getNotesById(noteIds: List<String>, requestedUserId: String): List<NoteModel>
 
     // ADD
 
@@ -92,9 +97,9 @@ interface NotesDataSource {
 
     // DELETE
 
-    suspend fun deleteOneNoteById(noteId: String): Boolean
+    suspend fun deleteNoteById(noteId: String): Boolean
 
-    suspend fun deleteManyNotesById(noteIds: List<String>): Boolean
+    suspend fun deleteNotesById(noteIds: List<String>): Boolean
 
     suspend fun deleteNoteForUser(userId: String, noteId: String): Boolean
 
