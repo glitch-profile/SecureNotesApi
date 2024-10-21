@@ -1,6 +1,5 @@
-package com.glitch.securenotes.data.datasource
+package com.glitch.securenotes.data.datasource.notes
 
-import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.data.model.entity.NoteModel
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -85,21 +84,41 @@ interface NotesDataSource {
 
     suspend fun disableNoteSharing(noteId: String, requestedUserId: String): Boolean
 
-    suspend fun addUserToSharedIds(noteId: String, userId: String): Boolean
+    suspend fun addUserToSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
-    suspend fun removeUserFromSharedIds(noteId: String, userId: String): Boolean
+    suspend fun removeUserFromSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
-//    suspend fun removeUserFromSharedIds(noteIds: List<String>, userId: String): Boolean
+    suspend fun removeUsersFromSharedEditorIds(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
 
-    suspend fun removeUsersFromSharedIds(noteId: String, userIds: List<String>): Boolean
+    suspend fun addUserToSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean
+
+    suspend fun removeUserFromSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean
+
+    suspend fun removeUsersFromSharedReaderIds(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
 
     suspend fun removeUserFromAllSharedNotes(userId: String): Boolean
+
+    // users roles
+
+    suspend fun updateNoteOwner(noteId: String, requestedUserId: String, userId: String): Boolean
+
+    suspend fun moveUserToReaders(noteId: String, requestedUserId: String, userId: String): Boolean
+
+    suspend fun moveUsersToReaders(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
+
+    suspend fun moveUserToEditors(noteId: String, requestedUserId: String, userId: String): Boolean
+
+    suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
 
     // DELETE
 
     suspend fun deleteNoteById(noteId: String): Boolean
 
+    suspend fun deleteNoteById(noteId: String, requestedUserId: String): Boolean
+
     suspend fun deleteNotesById(noteIds: List<String>): Boolean
+
+    suspend fun deleteNotesById(noteIds: List<String>, requestedUserId: String): Boolean
 
     suspend fun deleteNoteForUser(userId: String, noteId: String): Boolean
 
