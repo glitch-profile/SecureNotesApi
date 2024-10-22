@@ -1,4 +1,4 @@
-package com.glitch.securenotes.data.datasource
+package com.glitch.securenotes.data.datasource.notes
 
 import com.glitch.securenotes.data.model.entity.FileModel
 
