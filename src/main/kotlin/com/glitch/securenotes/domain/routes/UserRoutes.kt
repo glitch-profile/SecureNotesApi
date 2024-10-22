@@ -2,7 +2,6 @@ package com.glitch.securenotes.domain.routes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
-import com.glitch.securenotes.data.datasource.NotesDataSource
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
@@ -38,7 +37,6 @@ private const val MAX_FILE_SIZE = 5_242_880 // 5 MB in bytes
 fun Route.userRoutes(
     usersDataSource: UsersDataSource,
     userCredentialsDataSource: UserCredentialsDataSource,
-    notesDataSource: NotesDataSource,
     authSessionStorage: AuthSessionStorage,
     fileManager: FileManager,
     imageProcessor: ImageProcessor

@@ -2,9 +2,9 @@ package com.glitch.securenotes.domain.plugins
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
-import com.glitch.securenotes.data.datasource.NotesDataSource
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
+import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.domain.routes.authRoutes
 import com.glitch.securenotes.domain.routes.userRoutes
 import com.glitch.securenotes.domain.routes.utilRoutes
@@ -42,7 +42,6 @@ fun Application.configureRouting() {
         userRoutes(
             usersDataSource = usersDataSource,
             userCredentialsDataSource = userCredentialsDataSource,
-            notesDataSource = notesDataSource,
             authSessionStorage = authSessionManager,
             fileManager = fileManager,
             imageProcessor = imageProcessor
