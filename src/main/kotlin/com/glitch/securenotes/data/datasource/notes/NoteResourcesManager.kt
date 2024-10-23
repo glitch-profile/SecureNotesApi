@@ -79,4 +79,16 @@ interface NoteResourcesManager {
         editorUserId: String
     )
 
+    // UTILS
+
+    suspend fun encryptResource(
+        fileModel: FileModel,
+        encryptionKey: String
+    ): FileModel
+
+    suspend fun decryptResource(
+        fileModel: FileModel,
+        decryptionKey: String
+    ): FileModel
+
 }

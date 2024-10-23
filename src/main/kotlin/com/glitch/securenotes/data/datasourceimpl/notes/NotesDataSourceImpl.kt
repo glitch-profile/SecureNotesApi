@@ -49,19 +49,6 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            result.forEach { note ->
-                // TODO: Make sure that i really need to cache *this* notes
-                if (!notesCache.isNoteInfoExists(note.id)) {
-                    notesCache.putNoteInfo(
-                        noteId = note.id,
-                        creatorId = note.creatorId,
-                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
-                        editorsSharedIds = note.sharedEditorUserIds,
-                        readersSharedIds = note.sharedReaderUserIds,
-                        noteResource = note.noteResources
-                    )
-                }
-            }
             return result
         }
     }
@@ -92,19 +79,6 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-//            result.forEach { note ->
-//                // TODO: Make sure that i really need to cache *this* notes
-//                if (!notesCache.isNoteInfoExists(note.id)) {
-//                    notesCache.putNoteInfo(
-//                        noteId = note.id,
-//                        creatorId = note.creatorId,
-//                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
-//                        editorsSharedIds = note.sharedEditorUserIds,
-//                        readersSharedIds = note.sharedReaderUserIds,
-//                        noteResource = note.noteResources
-//                    )
-//                }
-//            }
             return result
         }
     }
@@ -140,19 +114,6 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-//            result.forEach { note ->
-//                // TODO: Make sure that i really need to cache *this* notes
-//                if (!notesCache.isNoteInfoExists(note.id)) {
-//                    notesCache.putNoteInfo(
-//                        noteId = note.id,
-//                        creatorId = note.creatorId,
-//                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
-//                        editorsSharedIds = note.sharedEditorUserIds,
-//                        readersSharedIds = note.sharedReaderUserIds,
-//                        noteResource = note.noteResources
-//                    )
-//                }
-//            }
             return result
         }
     }
