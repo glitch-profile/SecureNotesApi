@@ -459,7 +459,7 @@ fun Route.userRoutes(
                             userInfo.activeSessions.toMutableList().apply {
                                 remove(call.sessionId<AuthSession>())
                             }
-                        } else userInfo.activeSessions
+                        } else userInfo.activeSessions.toList()
                         sessionIdsToDelete.forEach { id ->
                             authSessionStorage.delete(id)
                         }

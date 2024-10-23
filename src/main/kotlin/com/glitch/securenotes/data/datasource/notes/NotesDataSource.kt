@@ -112,19 +112,19 @@ interface NotesDataSource {
 
     // resource ids
 
-    suspend fun getResourceIdsForNote(noteId: String, requestedUserId: String): Set<String>
-
-    suspend fun getResourceIdsForNotes(noteIds: Set<String>, requestedUserId: String): Set<String>
-
-    suspend fun addResourceToNote(noteId: String, editorUserId: String, resourceId: String): Boolean
-
-    suspend fun addResourcesToNote(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean
-
-    suspend fun removeResourceFromNote(noteId: String, editorUserId: String, resourceId: String): Boolean
-
-    suspend fun removeResourcesFromNote(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean
-
-    suspend fun removeAllResourcesFromNote(noteId: String, editorUserId: String): Boolean
+//    suspend fun getResourceIdsForNote(noteId: String, requestedUserId: String): Set<String>
+//
+//    suspend fun getResourceIdsForNotes(noteIds: Set<String>, requestedUserId: String): Set<String>
+//
+//    suspend fun addResourceToNote(noteId: String, editorUserId: String, resourceId: String): Boolean
+//
+//    suspend fun addResourcesToNote(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean
+//
+//    suspend fun removeResourceFromNote(noteId: String, editorUserId: String, resourceId: String): Boolean
+//
+//    suspend fun removeResourcesFromNote(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean
+//
+//    suspend fun removeAllResourcesFromNote(noteId: String, editorUserId: String): Boolean
 
     // DELETE
 

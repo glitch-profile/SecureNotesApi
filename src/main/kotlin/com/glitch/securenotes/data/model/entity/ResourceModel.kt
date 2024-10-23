@@ -8,6 +8,7 @@ import java.time.ZoneId
 @Serializable
 data class ResourceModel(
     val id: String = BsonId().toString(),
+    val noteId: String,
     val file: FileModel,
     val title: String,
     val description: String? = null,

@@ -18,6 +18,5 @@ data class NoteModel(
     val lastEditTimestamp: Long? = null,
     val title: String?,
     val description: String?,
-    val text: String,
-    val resourceIds: Set<String>
+    val text: String
 )
