@@ -1,58 +1,68 @@
 package com.glitch.securenotes.data.datasource.notes
 
 import com.glitch.securenotes.data.model.entity.FileModel
+import com.glitch.securenotes.data.model.entity.ResourceModel
 
-interface NoteResourcesManager {
+interface NoteResourcesDataSource {
 
     // GET
 
     suspend fun getResourceById(
-        noteId: String,
-        requestedUserId: String,
         resourceId: String
-    ): FileModel
+    ): ResourceModel
 
-    suspend fun getResourceByIds(
+    suspend fun getResourceById(
         noteId: String,
-        requestedUserId: String,
-        resourceIds: List<String>
-    ): List<FileModel>
+        resourceId: String,
+        requestedUserId: String
+    ): ResourceModel
 
-    suspend fun getResourceForNote(
+    suspend fun getResourcesById(
+        resourceIds: Set<String>
+    ): List<ResourceModel>
+
+    suspend fun getResourcesById(
+        noteId: String,
+        resourceIds: Set<String>,
+        requestedUserId: String
+    ): List<ResourceModel>
+
+    suspend fun getResourcesForNote(
         noteId: String,
         requestedUserId: String
-    ): List<FileModel>
+    ): List<ResourceModel>
 
-    suspend fun getResourceForNotes(
-        noteIds: List<String>,
-        requestedUserId: String
-    ): List<FileModel>
+    // ADD
 
-    // CREATE
-
-    suspend fun addResourceToNote(
+    suspend fun addResourceForNote(
         noteId: String,
         editorUserId: String,
-        fileName: String,
-        fileUrl: String,
-        fileDescription: String? = null,
-        filePreviewUrl: String? = null
-    ): FileModel
+        title: String,
+        description: String?,
+        fileModel: FileModel
+    ): ResourceModel
+
+    suspend fun copyResourceFromNote(
+        targetNoteId: String,
+        editorUserId: String,
+        sourceNoteId: String,
+        sourceResourceId: String
+    ): ResourceModel
 
     // UPDATE
 
     suspend fun updateResourceTitle(
         noteId: String,
-        editorUserId: String,
         resourceId: String,
-        newResourceTitle: String?
+        editorUserId: String,
+        newTitle: String
     ): Boolean
 
     suspend fun updateResourceDescription(
         noteId: String,
-        editorUserId: String,
         resourceId: String,
-        newResourceDescription: String?
+        editorUserId: String,
+        newDescription: String?
     ): Boolean
 
     // DELETE
@@ -81,14 +91,14 @@ interface NoteResourcesManager {
 
     // UTILS
 
-    suspend fun encryptResource(
-        fileModel: FileModel,
+    fun encryptResource(
+        resource: ResourceModel,
         encryptionKey: String
-    ): FileModel
+    ): ResourceModel
 
-    suspend fun decryptResource(
-        fileModel: FileModel,
+    fun decryptResource(
+        resource: ResourceModel,
         decryptionKey: String
-    ): FileModel
+    )
 
 }
