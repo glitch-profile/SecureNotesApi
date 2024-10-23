@@ -10,14 +10,14 @@ interface NotesDataSource {
 
     suspend fun getNotesForUser(
         userId: String,
-        excludedNotesId: List<String>,
+        excludedNotesId: Set<String>,
         page: Int = 0,
         limit: Int = -1
     ): List<NoteModel>
 
     suspend fun getProtectedNotesForUser(
         userId: String,
-        includedNotesIds: List<String>,
+        includedNotesIds: Set<String>,
         page: Int = 0,
         limit: Int = -1
     ): List<NoteModel>
@@ -26,17 +26,17 @@ interface NotesDataSource {
         userId: String,
         page: Int = 0,
         limit: Int = -1,
-        onlyIncludedIds: List<String> = emptyList(),
-        excludeIds: List<String> = emptyList()
+        onlyIncludedIds: Set<String> = emptySet(),
+        excludeIds: Set<String> = emptySet()
     ): List<NoteModel>
 
     suspend fun getNoteById(noteId: String): NoteModel
 
     suspend fun getNoteById(noteId: String, requestedUserId: String): NoteModel
 
-    suspend fun getNotesById(noteIds: List<String>): List<NoteModel>
+    suspend fun getNotesById(noteIds: Set<String>): List<NoteModel>
 
-    suspend fun getNotesById(noteIds: List<String>, requestedUserId: String): List<NoteModel>
+    suspend fun getNotesById(noteIds: Set<String>, requestedUserId: String): List<NoteModel>
 
     // ADD
 
@@ -88,13 +88,13 @@ interface NotesDataSource {
 
     suspend fun removeUserFromSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
-    suspend fun removeUsersFromSharedEditorIds(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
+    suspend fun removeUsersFromSharedEditorIds(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
     suspend fun addUserToSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
     suspend fun removeUserFromSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
-    suspend fun removeUsersFromSharedReaderIds(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
+    suspend fun removeUsersFromSharedReaderIds(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
     suspend fun removeUserFromAllSharedNotes(userId: String): Boolean
 
@@ -104,11 +104,11 @@ interface NotesDataSource {
 
     suspend fun moveUserToReaders(noteId: String, requestedUserId: String, userId: String): Boolean
 
-    suspend fun moveUsersToReaders(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
+    suspend fun moveUsersToReaders(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
     suspend fun moveUserToEditors(noteId: String, requestedUserId: String, userId: String): Boolean
 
-    suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: List<String>): Boolean
+    suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
     // DELETE
 
@@ -116,9 +116,9 @@ interface NotesDataSource {
 
     suspend fun deleteNoteById(noteId: String, requestedUserId: String): Boolean
 
-    suspend fun deleteNotesById(noteIds: List<String>): Boolean
+    suspend fun deleteNotesById(noteIds: Set<String>): Boolean
 
-    suspend fun deleteNotesById(noteIds: List<String>, requestedUserId: String): Boolean
+    suspend fun deleteNotesById(noteIds: Set<String>, requestedUserId: String): Boolean
 
     suspend fun deleteNoteForUser(userId: String, noteId: String): Boolean
 

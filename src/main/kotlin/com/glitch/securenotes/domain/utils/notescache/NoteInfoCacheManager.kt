@@ -2,18 +2,25 @@ package com.glitch.securenotes.domain.utils.notescache
 
 import com.glitch.securenotes.data.model.entity.FileModel
 
+/**
+ * Util class that stores information about the last requested user notes (usually 1024).
+ * Allows access to the encryption key, creator id and other shared user ids, and information about stored resources.
+ * Does not contain the content of the note itself
+ */
 interface NoteInfoCacheManager {
 
     fun isNoteInfoExists(noteId: String): Boolean
 
     fun getNoteInfo(noteId: String): NoteInfoCache
 
+    // add to cache
+
     fun putNoteInfo(
         noteId: String,
         creatorId: String,
         decryptedEncryptionKey: String,
-        editorsSharedIds: List<String> = emptyList(),
-        readersSharedIds: List<String> = emptyList(),
+        editorsSharedIds: Set<String> = emptySet(),
+        readersSharedIds: Set<String> = emptySet(),
         noteResource: List<FileModel> = emptyList()
     )
 
@@ -60,5 +67,11 @@ interface NoteInfoCacheManager {
     fun deleteResource(noteId: String, resourceId: String)
 
     fun getEncryptionKeyForNote(noteId: String, requestedUserId: String): String
+
+    // remove from cache
+
+    fun deleteNoteInfo(
+        noteId: String
+    )
 
 }

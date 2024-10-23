@@ -6,8 +6,8 @@ import java.time.ZoneId
 
 data class NoteInfoCache(
     val creatorId: String,
-    val editorUserIds: List<String>,
-    val readerUserIds: List<String>,
+    val editorUserIds: Set<String>,
+    val readerUserIds: Set<String>,
     val noteEncryptionKey: String,
     val noteResource: List<FileModel>,
     val cacheLastActiveTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()

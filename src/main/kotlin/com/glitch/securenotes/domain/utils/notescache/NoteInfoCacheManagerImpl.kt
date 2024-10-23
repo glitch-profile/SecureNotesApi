@@ -22,8 +22,8 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
         noteId: String,
         creatorId: String,
         decryptedEncryptionKey: String,
-        editorsSharedIds: List<String>,
-        readersSharedIds: List<String>,
+        editorsSharedIds: Set<String>,
+        readersSharedIds: Set<String>,
         noteResource: List<FileModel>
     ) {
         val noteInfo = NoteInfoCache(
@@ -58,7 +58,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun updateOwnerId(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         val currentOwner = note.creatorId
-        val newEditorsList = note.editorUserIds.toMutableList().apply {
+        val newEditorsList = note.editorUserIds.toMutableSet().apply {
             add(currentOwner)
         }
         val newNote = note.copy(
@@ -72,7 +72,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun addEditorUserId(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         cache[noteId] = note.copy(
-            editorUserIds = note.editorUserIds.toMutableList().apply {
+            editorUserIds = note.editorUserIds.toMutableSet().apply {
                 add(userId)
             },
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -82,7 +82,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun removeEditorUserId(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         cache[noteId] = note.copy(
-            editorUserIds = note.editorUserIds.toMutableList().apply {
+            editorUserIds = note.editorUserIds.toMutableSet().apply {
                 remove(userId)
             },
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -92,10 +92,10 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun updateUserRoleToReader(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         cache[noteId] = note.copy(
-            editorUserIds = note.editorUserIds.toMutableList().apply {
+            editorUserIds = note.editorUserIds.toMutableSet().apply {
                 remove(userId)
             },
-            readerUserIds = note.readerUserIds.toMutableList().apply {
+            readerUserIds = note.readerUserIds.toMutableSet().apply {
                 add(userId)
             },
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -105,7 +105,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun addReaderUserId(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         cache[noteId] = note.copy(
-            readerUserIds = note.readerUserIds.toMutableList().apply {
+            readerUserIds = note.readerUserIds.toMutableSet().apply {
                 add(userId)
             },
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -115,7 +115,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun removeReaderUserId(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         cache[noteId] = note.copy(
-            readerUserIds = note.readerUserIds.toMutableList().apply {
+            readerUserIds = note.readerUserIds.toMutableSet().apply {
                 remove(userId)
             },
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -125,10 +125,10 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun updateUserRoleToEditor(noteId: String, userId: String) {
         val note = getNoteInfo(noteId)
         cache[noteId] = note.copy(
-            editorUserIds = note.editorUserIds.toMutableList().apply {
+            editorUserIds = note.editorUserIds.toMutableSet().apply {
                 add(userId)
             },
-            readerUserIds = note.readerUserIds.toMutableList().apply {
+            readerUserIds = note.readerUserIds.toMutableSet().apply {
                 remove(userId)
             },
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -211,5 +211,9 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
         )
         return note.noteEncryptionKey
+    }
+
+    override fun deleteNoteInfo(noteId: String) {
+        cache.remove(noteId)
     }
 }

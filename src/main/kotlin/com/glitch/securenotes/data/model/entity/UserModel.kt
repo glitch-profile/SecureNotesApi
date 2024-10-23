@@ -12,7 +12,7 @@ data class UserModel(
     val username: String,
     val profileAvatar: FileModel?,
     val protectedNotePassword: String? = null,
-    val protectedNoteIds: List<String> = emptyList(),
+    val protectedNoteIds: Set<String> = emptySet(),
     val creationDate: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
-    val activeSessions: List<String> = emptyList()
+    val activeSessions: Set<String> = emptySet()
 )

@@ -1,9 +1,12 @@
-package com.glitch.securenotes.data.datasourceimpl
+package com.glitch.securenotes.data.datasourceimpl.notes
 
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesManager
 import com.glitch.securenotes.data.model.entity.FileModel
+import com.glitch.securenotes.domain.utils.notescache.NoteInfoCacheManager
 
-class NoteResourceManagerImpl(): NoteResourcesManager {
+class NoteResourceManagerImpl(
+    private val notesCache: NoteInfoCacheManager
+): NoteResourcesManager {
 
     override suspend fun getResourceById(noteId: String, requestedUserId: String, resourceId: String): FileModel {
         TODO("Not yet implemented")
