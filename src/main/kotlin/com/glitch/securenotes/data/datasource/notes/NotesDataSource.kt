@@ -125,7 +125,7 @@ interface NotesDataSource {
     // including created and shared notes
     suspend fun deleteNotesForUser(
         userId: String,
-        noteIds: String
+        noteIds: Set<String>
     ): Boolean
 
     suspend fun deleteAllUserCreatedNotes(userId: String): Boolean

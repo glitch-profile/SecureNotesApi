@@ -92,19 +92,19 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            result.forEach { note ->
-                // TODO: Make sure that i really need to cache *this* notes
-                if (!notesCache.isNoteInfoExists(note.id)) {
-                    notesCache.putNoteInfo(
-                        noteId = note.id,
-                        creatorId = note.creatorId,
-                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
-                        editorsSharedIds = note.sharedEditorUserIds,
-                        readersSharedIds = note.sharedReaderUserIds,
-                        noteResource = note.noteResources
-                    )
-                }
-            }
+//            result.forEach { note ->
+//                // TODO: Make sure that i really need to cache *this* notes
+//                if (!notesCache.isNoteInfoExists(note.id)) {
+//                    notesCache.putNoteInfo(
+//                        noteId = note.id,
+//                        creatorId = note.creatorId,
+//                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
+//                        editorsSharedIds = note.sharedEditorUserIds,
+//                        readersSharedIds = note.sharedReaderUserIds,
+//                        noteResource = note.noteResources
+//                    )
+//                }
+//            }
             return result
         }
     }
@@ -140,19 +140,19 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            result.forEach { note ->
-                // TODO: Make sure that i really need to cache *this* notes
-                if (!notesCache.isNoteInfoExists(note.id)) {
-                    notesCache.putNoteInfo(
-                        noteId = note.id,
-                        creatorId = note.creatorId,
-                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
-                        editorsSharedIds = note.sharedEditorUserIds,
-                        readersSharedIds = note.sharedReaderUserIds,
-                        noteResource = note.noteResources
-                    )
-                }
-            }
+//            result.forEach { note ->
+//                // TODO: Make sure that i really need to cache *this* notes
+//                if (!notesCache.isNoteInfoExists(note.id)) {
+//                    notesCache.putNoteInfo(
+//                        noteId = note.id,
+//                        creatorId = note.creatorId,
+//                        decryptedEncryptionKey = AESEncryptor.decrypt(note.encryptionKey),
+//                        editorsSharedIds = note.sharedEditorUserIds,
+//                        readersSharedIds = note.sharedReaderUserIds,
+//                        noteResource = note.noteResources
+//                    )
+//                }
+//            }
             return result
         }
     }
@@ -168,7 +168,8 @@ class NotesDataSourceImpl(
             Filters.eq("_id", noteId),
             Filters.or(
                 Filters.eq(NoteModel::creatorId.name, requestedUserId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId)
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId),
+                Filters.`in`(NoteModel::sharedReaderUserIds.name, requestedUserId)
             )
         )
         return notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
@@ -186,7 +187,8 @@ class NotesDataSourceImpl(
             Filters.`in`("_id", noteIds),
             Filters.or(
                 Filters.eq(NoteModel::creatorId.name, requestedUserId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId)
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId),
+                Filters.`in`(NoteModel::sharedReaderUserIds.name, requestedUserId)
             )
         )
         val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
@@ -318,7 +320,8 @@ class NotesDataSourceImpl(
         )
         val update = Updates.combine(
             Updates.set(NoteModel::isSharing.name, false),
-            Updates.set(NoteModel::sharedEditorUserIds.name, emptyList<String>())
+            Updates.set(NoteModel::sharedEditorUserIds.name, emptyList<String>()),
+            Updates.set(NoteModel::sharedReaderUserIds.name, emptyList<String>())
         )
         val result = notes.updateOne(filter, update)
         return result.modifiedCount != 0L
@@ -417,7 +420,10 @@ class NotesDataSourceImpl(
     }
 
     override suspend fun removeUserFromAllSharedNotes(userId: String): Boolean {
-        val filter = Filters.`in`(NoteModel::sharedEditorUserIds.name, userId)
+        val filter = Filters.or(
+            Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
+            Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
+        )
         val update = Updates.pull(NoteModel::sharedEditorUserIds.name, userId)
         val result = notes.updateMany(filter, update)
         return result.modifiedCount != 0L
@@ -467,7 +473,7 @@ class NotesDataSourceImpl(
             Updates.pullAll(NoteModel::sharedEditorUserIds.name, userIds.toList()),
             Updates.addEachToSet(NoteModel::sharedReaderUserIds.name, userIds.toList())
         )
-        val result = notes.updateMany(filter, update)
+        val result = notes.updateOne(filter, update)
         return result.modifiedCount != 0L
     }
 
@@ -497,7 +503,7 @@ class NotesDataSourceImpl(
             Updates.pullAll(NoteModel::sharedReaderUserIds.name, userIds.toList()),
             Updates.addEachToSet(NoteModel::sharedEditorUserIds.name, userIds.toList())
         )
-        val result = notes.updateMany(filter, update)
+        val result = notes.updateOne(filter, update)
         return result.modifiedCount != 0L
     }
 
@@ -545,7 +551,10 @@ class NotesDataSourceImpl(
             Filters.eq("_id", noteId),
             Filters.ne(NoteModel::creatorId.name, userId)
         )
-        val sharedNoteUpdate = Updates.pull(NoteModel::sharedEditorUserIds.name, userId)
+        val sharedNoteUpdate = Updates.combine(
+            Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
+            Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
+        )
         val sharedNoteResult = notes.updateOne(sharedNoteFilter, sharedNoteUpdate)
             .modifiedCount != 0L
         val createdNoteResult = notes.deleteOne(createdNoteFilter)
@@ -554,16 +563,19 @@ class NotesDataSourceImpl(
     }
 
     // its caller responsibility to delete resource files from this notes
-    override suspend fun deleteNotesForUser(userId: String, noteIds: String): Boolean {
+    override suspend fun deleteNotesForUser(userId: String, noteIds: Set<String>): Boolean {
         val createdNotesFilter = Filters.and(
-            Filters.`in`("_id", noteIds),
+            Filters.`in`("_id", noteIds.toList()),
             Filters.eq(NoteModel::creatorId.name, userId)
         )
         val sharedNotesFilter = Filters.and(
-            Filters.`in`("_id", noteIds),
+            Filters.`in`("_id", noteIds.toList()),
             Filters.ne(NoteModel::creatorId.name, userId)
         )
-        val sharedNotesUpdate = Updates.pull(NoteModel::sharedEditorUserIds.name, userId)
+        val sharedNotesUpdate = Updates.combine(
+            Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
+            Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
+        )
         val createdNotesResult = notes.deleteMany(createdNotesFilter)
             .deletedCount != 0L
         val sharedNotesResult = notes.updateMany(sharedNotesFilter, sharedNotesUpdate)
