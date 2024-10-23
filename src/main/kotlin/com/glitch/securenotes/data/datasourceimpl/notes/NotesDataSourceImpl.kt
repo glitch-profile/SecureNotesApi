@@ -173,7 +173,7 @@ class NotesDataSourceImpl(
             description = description,
             text = text,
             encryptionKey = protectedEncryptionKey,
-            noteResources = emptyList(),
+            resourceIds = emptySet(),
         )
         val encryptedNote = encryptNote(noteData, encryptionKey = encryptionKey)
         notes.insertOne(encryptedNote)
@@ -198,7 +198,7 @@ class NotesDataSourceImpl(
             creationTimestamp = creationTimestamp,
             lastEditTimestamp = lastEditTimestamp,
             encryptionKey = protectedEncryptionKey,
-            noteResources = emptyList(),
+            resourceIds = emptySet(),
         )
         val encryptedNote = encryptNote(noteData, encryptionKey = encryptionKey)
         notes.insertOne(encryptedNote)
@@ -466,6 +466,95 @@ class NotesDataSourceImpl(
         )
         val result = notes.updateOne(filter, update)
         return result.modifiedCount != 0L
+    }
+
+    // resource ids
+    override suspend fun getResourceIdsForNote(noteId: String, requestedUserId: String): Set<String> {
+        val note = getNoteById(noteId, requestedUserId)
+        return note.resourceIds
+    }
+
+    override suspend fun getResourceIdsForNotes(noteIds: Set<String>, requestedUserId: String): Set<String> {
+        val notes = getNotesById(noteIds, requestedUserId)
+        val notesSet = mutableSetOf<String>()
+        notes.forEach {
+            notesSet.addAll(it.resourceIds)
+        }
+        return notesSet
+    }
+
+    override suspend fun addResourceToNote(noteId: String, editorUserId: String, resourceId: String): Boolean {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, editorUserId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
+            )
+        )
+        val update = Updates.addToSet(NoteModel::resourceIds.name, resourceId)
+        val result = notes.updateOne(filter, update)
+            .modifiedCount != 0L
+        return result
+    }
+
+    override suspend fun addResourcesToNote(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, editorUserId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
+            )
+        )
+        val update = Updates.addEachToSet(NoteModel::resourceIds.name, resourceIds.toList())
+        val result = notes.updateOne(filter, update)
+            .modifiedCount != 0L
+        return result
+    }
+
+    override suspend fun removeResourceFromNote(noteId: String, editorUserId: String, resourceId: String): Boolean {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, editorUserId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
+            )
+        )
+        val update = Updates.pull(NoteModel::resourceIds.name, resourceId)
+        val result = notes.updateOne(filter, update)
+            .modifiedCount != 0L
+        return result
+    }
+
+    override suspend fun removeResourcesFromNote(
+        noteId: String,
+        editorUserId: String,
+        resourceIds: Set<String>
+    ): Boolean {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, editorUserId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
+            )
+        )
+        val update = Updates.pullAll(NoteModel::resourceIds.name, resourceIds.toList())
+        val result = notes.updateOne(filter, update)
+            .modifiedCount != 0L
+        return result
+    }
+
+    override suspend fun removeAllResourcesFromNote(noteId: String, editorUserId: String): Boolean {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId.name, editorUserId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
+            )
+        )
+        val update = Updates.set(NoteModel::resourceIds.name, emptyList<String>())
+        val result = notes.updateOne(filter, update)
+            .modifiedCount != 0L
+        return result
     }
 
     // DELETE
