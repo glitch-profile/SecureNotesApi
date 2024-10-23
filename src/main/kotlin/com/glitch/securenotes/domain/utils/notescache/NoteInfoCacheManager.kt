@@ -13,22 +13,24 @@ interface NoteInfoCacheManager {
 
     fun getNoteInfo(noteId: String): NoteInfoCache
 
+    fun getNoteInfo(noteId: String, requestedUserId: String): NoteInfoCache
+
     // add to cache
 
     fun putNoteInfo(
         noteId: String,
         creatorId: String,
-        decryptedEncryptionKey: String,
         editorsSharedIds: Set<String> = emptySet(),
         readersSharedIds: Set<String> = emptySet(),
-        noteResource: List<FileModel> = emptyList()
+        decryptedEncryptionKey: String,
+        decryptedNoteResource: List<FileModel> = emptyList()
     )
 
     // users
 
-    fun getUserRole(noteId: String, userId: String): UserRole
+    fun getUserRoleLevel(noteId: String, userId: String): Short
 
-    fun getUserRole(note: NoteInfoCache, userId: String): UserRole
+    fun getUserRoleLevel(note: NoteInfoCache, userId: String): Short
 
     fun updateOwnerId(noteId: String, userId: String)
 
@@ -49,6 +51,8 @@ interface NoteInfoCacheManager {
     fun getResourcesForNote(noteId: String, requestedUserId: String): List<FileModel>
 
     fun getResourceById(noteId: String, resourceId: String, requestedUserId: String): FileModel
+
+    fun getResourceById(noteId: String, resourceIds: List<String>, requestedUserId: String): List<FileModel>
 
     fun addResourceToNote(noteId: String, requestedUserId: String, resource: FileModel)
 
@@ -71,6 +75,12 @@ interface NoteInfoCacheManager {
     // remove from cache
 
     fun deleteNoteInfo(
+        noteId: String
+    )
+
+    // utils
+
+    fun updateLastActiveTimestamp(
         noteId: String
     )
 

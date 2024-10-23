@@ -15,23 +15,32 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
 
     override fun getNoteInfo(noteId: String): NoteInfoCache {
         if (isNoteInfoExists(noteId)) return cache[noteId]!!
-        else throw NoteCacheInfoNotFoundExtension()
+        else throw NoteCacheInfoNoteNotFoundExtension()
+    }
+
+    override fun getNoteInfo(noteId: String, requestedUserId: String): NoteInfoCache {
+        if (isNoteInfoExists(noteId)) {
+            val note = getNoteInfo(noteId)
+            if (getUserRoleLevel(note, requestedUserId) == UserRole.UNKNOWN) {
+                return note
+            } else throw NoteCachePermissionsException()
+        } else throw NoteCacheInfoNoteNotFoundExtension()
     }
 
     override fun putNoteInfo(
         noteId: String,
         creatorId: String,
-        decryptedEncryptionKey: String,
         editorsSharedIds: Set<String>,
         readersSharedIds: Set<String>,
-        noteResource: List<FileModel>
+        decryptedEncryptionKey: String,
+        decryptedNoteResource: List<FileModel>
     ) {
         val noteInfo = NoteInfoCache(
             creatorId = creatorId,
             editorUserIds = editorsSharedIds,
             readerUserIds = readersSharedIds,
             noteEncryptionKey = decryptedEncryptionKey,
-            noteResource = noteResource
+            noteResource = decryptedNoteResource
         )
         if (cache.size >= 1024) {
             val oldestResource = cache.minByOrNull { it.value.cacheLastActiveTimestamp }!!
@@ -40,7 +49,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
         cache[noteId] = noteInfo
     }
 
-    override fun getUserRole(noteId: String, userId: String): UserRole {
+    override fun getUserRoleLevel(noteId: String, userId: String): Short {
         val noteInfo = getNoteInfo(noteId)
         return if (noteInfo.creatorId == userId) UserRole.OWNER
         else if (noteInfo.editorUserIds.contains(userId)) UserRole.EDITOR
@@ -48,7 +57,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
         else UserRole.UNKNOWN
     }
 
-    override fun getUserRole(note: NoteInfoCache, userId: String): UserRole {
+    override fun getUserRoleLevel(note: NoteInfoCache, userId: String): Short {
         return if (note.creatorId == userId) UserRole.OWNER
         else if (note.editorUserIds.contains(userId)) UserRole.EDITOR
         else if (note.readerUserIds.contains(userId)) UserRole.READER
@@ -136,8 +145,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     }
 
     override fun getResourcesForNote(noteId: String, requestedUserId: String): List<FileModel> {
-        val note = getNoteInfo(noteId)
-        if (getUserRole(note, requestedUserId) == UserRole.UNKNOWN) throw NoteCacheUserRoleException()
+        val note = getNoteInfo(noteId, requestedUserId)
         cache[noteId] = note.copy(
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
         )
@@ -145,13 +153,22 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     }
 
     override fun getResourceById(noteId: String, resourceId: String, requestedUserId: String): FileModel {
-        val note = getNoteInfo(noteId)
-        if (getUserRole(note, requestedUserId) == UserRole.UNKNOWN) throw NoteCacheUserRoleException()
-        val requestedResource = note.noteResource.first { it.fileId == resourceId }
+        val note = getNoteInfo(noteId, requestedUserId)
+        val requestedResource = note.noteResource.firstOrNull { it.fileId == resourceId }
+            ?: throw NoteCacheResourceNotFoundException()
         cache[noteId] = note.copy(
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
         )
         return requestedResource
+    }
+
+    override fun getResourceById(noteId: String, resourceIds: List<String>, requestedUserId: String): List<FileModel> {
+        val note = getNoteInfo(noteId, requestedUserId)
+        val requestedResources = note.noteResource.filter { resourceIds.contains(it.fileId) }
+        cache[noteId] = note.copy(
+            cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+        )
+        return requestedResources
     }
 
     override fun addResourceToNote(noteId: String, requestedUserId: String, resource: FileModel) {
@@ -206,7 +223,7 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
 
     override fun getEncryptionKeyForNote(noteId: String, requestedUserId: String): String {
         val note = getNoteInfo(noteId)
-        if (getUserRole(note, requestedUserId) == UserRole.UNKNOWN) throw NoteCacheUserRoleException()
+        if (getUserRoleLevel(note, requestedUserId) == UserRole.UNKNOWN) throw NoteCachePermissionsException()
         cache[noteId] = note.copy(
             cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
         )
@@ -216,4 +233,20 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
     override fun deleteNoteInfo(noteId: String) {
         cache.remove(noteId)
     }
+
+    override fun updateLastActiveTimestamp(noteId: String) {
+        if (isNoteInfoExists(noteId)) {
+            val note = cache[noteId]!!
+            cache[noteId] = note.copy(
+                cacheLastActiveTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+            )
+        }
+    }
+}
+
+private object UserRole {
+    const val OWNER: Short = 3
+    const val EDITOR: Short = 2
+    const val READER: Short = 1
+    const val UNKNOWN: Short = 0
 }
