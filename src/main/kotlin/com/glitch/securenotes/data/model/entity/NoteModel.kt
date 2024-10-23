@@ -19,5 +19,5 @@ data class NoteModel(
     val title: String?,
     val description: String?,
     val text: String,
-    val noteResources: List<FileModel>
+    val resourceIds: Set<String>
 )

@@ -9,7 +9,6 @@ import java.time.ZoneId
 data class FileModel(
     val fileId: String = BsonId().toString(),
     val name: String,
-    val description: String? = null,
     val urlPath: String,
     val previewUrlPath: String? = null,
     val creationTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
