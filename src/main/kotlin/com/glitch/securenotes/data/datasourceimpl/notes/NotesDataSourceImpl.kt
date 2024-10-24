@@ -466,6 +466,17 @@ class NotesDataSourceImpl(
         return result.modifiedCount != 0L
     }
 
+    override suspend fun getUserRoleLevel(noteId: String, userId: String): Short {
+        try {
+            val note = getNoteById(noteId, requestedUserId = userId)
+            return if (note.creatorId == userId) UserRole.OWNER
+            else if (note.sharedEditorUserIds.contains(userId)) UserRole.EDITOR
+            else UserRole.READER
+        } catch (e: NoteNotFoundException) {
+            return UserRole.UNKNOWN
+        }
+    }
+
     // resource ids
 
 //    override suspend fun getResourceIdsForNote(noteId: String, requestedUserId: String): Set<String> {

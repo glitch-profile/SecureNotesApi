@@ -110,6 +110,8 @@ interface NotesDataSource {
 
     suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
+    suspend fun getUserRoleLevel(noteId: String, userId: String): Short
+
     // resource ids
 
 //    suspend fun getResourceIdsForNote(noteId: String, requestedUserId: String): Set<String>
