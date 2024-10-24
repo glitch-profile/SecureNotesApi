@@ -1,5 +1,6 @@
 package com.glitch.securenotes.domain.utils.notescache
 
+import com.glitch.securenotes.data.datasourceimpl.notes.UserRole
 import com.glitch.securenotes.data.model.entity.FileModel
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -242,11 +243,4 @@ class NoteInfoCacheManagerImpl: NoteInfoCacheManager {
             )
         }
     }
-}
-
-private object UserRole {
-    const val OWNER: Short = 3
-    const val EDITOR: Short = 2
-    const val READER: Short = 1
-    const val UNKNOWN: Short = 0
 }

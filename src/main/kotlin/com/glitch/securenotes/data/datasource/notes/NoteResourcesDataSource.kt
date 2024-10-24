@@ -42,13 +42,6 @@ interface NoteResourcesDataSource {
         fileModel: FileModel
     ): ResourceModel
 
-    suspend fun copyResourceFromNote(
-        targetNoteId: String,
-        editorUserId: String,
-        sourceNoteId: String,
-        sourceResourceId: String
-    ): ResourceModel
-
     // UPDATE
 
     suspend fun updateResourceTitle(

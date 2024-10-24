@@ -13,6 +13,6 @@ data class ResourceModel(
     val title: String,
     val description: String? = null,
     val createdTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
-    val createdUserId: String,
-    val reusedUserId: String? = null
+    val lastEditTimestamp: Long? = null,
+    val createdUserId: String
 )

@@ -49,15 +49,6 @@ class NotesResourcesDataSourceImpl(
         TODO("Not yet implemented")
     }
 
-    override suspend fun copyResourceFromNote(
-        targetNoteId: String,
-        editorUserId: String,
-        sourceNoteId: String,
-        sourceResourceId: String
-    ): ResourceModel {
-        TODO("Not yet implemented")
-    }
-
     // UPDATE
 
     override suspend fun updateResourceTitle(
