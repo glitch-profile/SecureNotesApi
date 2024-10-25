@@ -30,11 +30,11 @@ interface NotesDataSource {
         excludeIds: Set<String> = emptySet()
     ): List<NoteModel>
 
-    suspend fun getNoteById(noteId: String): NoteModel
+//    suspend fun getNoteById(noteId: String): NoteModel
 
     suspend fun getNoteById(noteId: String, requestedUserId: String): NoteModel
 
-    suspend fun getNotesById(noteIds: Set<String>): List<NoteModel>
+//    suspend fun getNotesById(noteIds: Set<String>): List<NoteModel>
 
     suspend fun getNotesById(noteIds: Set<String>, requestedUserId: String): List<NoteModel>
 
@@ -110,7 +110,9 @@ interface NotesDataSource {
 
     suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
-    suspend fun getUserRoleLevel(noteId: String, userId: String): Short
+    suspend fun getNoteForRead(noteId:String, userId: String): NoteModel
+
+    suspend fun getNoteForEdit(noteId: String, userId: String): NoteModel
 
     // resource ids
 
@@ -130,11 +132,11 @@ interface NotesDataSource {
 
     // DELETE
 
-    suspend fun deleteNoteById(noteId: String): Boolean
+//    suspend fun deleteNoteById(noteId: String): Boolean
 
     suspend fun deleteNoteById(noteId: String, requestedUserId: String): Boolean
 
-    suspend fun deleteNotesById(noteIds: Set<String>): Boolean
+//    suspend fun deleteNotesById(noteIds: Set<String>): Boolean
 
     suspend fun deleteNotesById(noteIds: Set<String>, requestedUserId: String): Boolean
 

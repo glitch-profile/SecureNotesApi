@@ -118,7 +118,7 @@ class NotesDataSourceImpl(
         }
     }
 
-    override suspend fun getNoteById(noteId: String): NoteModel {
+    private suspend fun getNoteById(noteId: String): NoteModel {
         val filter = Filters.eq("_id", noteId)
         val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
         return result
@@ -136,7 +136,7 @@ class NotesDataSourceImpl(
         return notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
     }
 
-    override suspend fun getNotesById(noteIds: Set<String>): List<NoteModel> {
+    private suspend fun getNotesById(noteIds: Set<String>): List<NoteModel> {
         val filter = Filters.`in`("_id", noteIds)
         val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
             .toList()
@@ -466,15 +466,31 @@ class NotesDataSourceImpl(
         return result.modifiedCount != 0L
     }
 
-    override suspend fun getUserRoleLevel(noteId: String, userId: String): Short {
-        try {
-            val note = getNoteById(noteId, requestedUserId = userId)
-            return if (note.creatorId == userId) UserRole.OWNER
-            else if (note.sharedEditorUserIds.contains(userId)) UserRole.EDITOR
-            else UserRole.READER
-        } catch (e: NoteNotFoundException) {
-            return UserRole.UNKNOWN
-        }
+    override suspend fun getNoteForRead(noteId: String, userId: String): NoteModel {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId. name, userId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
+                Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
+            )
+        )
+
+        return notes.find(filter).singleOrNull()
+            ?: throw NoteNotFoundException()
+    }
+
+    override suspend fun getNoteForEdit(noteId: String, userId: String): NoteModel {
+        val filter = Filters.and(
+            Filters.eq("_id", noteId),
+            Filters.or(
+                Filters.eq(NoteModel::creatorId. name, userId),
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId)
+            )
+        )
+
+        return notes.find(filter).singleOrNull()
+            ?: throw NoteNotFoundException()
     }
 
     // resource ids
@@ -569,8 +585,7 @@ class NotesDataSourceImpl(
 
     // DELETE
 
-    // its caller responsibility to delete resource files from this notes
-    override suspend fun deleteNoteById(noteId: String): Boolean {
+    private suspend fun deleteNoteById(noteId: String): Boolean {
         val filter = Filters.eq("_id", noteId)
         val result = notes.deleteOne(filter)
         return result.deletedCount != 0L
@@ -585,8 +600,7 @@ class NotesDataSourceImpl(
         return result.deletedCount != 0L
     }
 
-    // its caller responsibility to delete resource files from this notes
-    override suspend fun deleteNotesById(noteIds: Set<String>): Boolean {
+    private suspend fun deleteNotesById(noteIds: Set<String>): Boolean {
         val filter = Filters.`in`("_id", noteIds)
         val result = notes.deleteMany(filter)
         return result.deletedCount != 0L
