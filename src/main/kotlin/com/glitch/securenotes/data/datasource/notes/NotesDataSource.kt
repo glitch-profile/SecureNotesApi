@@ -110,9 +110,9 @@ interface NotesDataSource {
 
     suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
-    suspend fun getNoteForRead(noteId:String, userId: String): NoteModel
+    suspend fun getNoteEncryptionKeyForReading(noteId:String, userId: String): String
 
-    suspend fun getNoteForEdit(noteId: String, userId: String): NoteModel
+    suspend fun getNoteEncryptionKeyForEditing(noteId: String, userId: String): String
 
     // resource ids
 
@@ -156,6 +156,6 @@ interface NotesDataSource {
 
     fun encryptNote(note: NoteModel, encryptionKey: String): NoteModel
 
-    fun decryptNote(note: NoteModel, decryptionKey: String): NoteModel
+    fun decryptNote(note: NoteModel): NoteModel
 
 }

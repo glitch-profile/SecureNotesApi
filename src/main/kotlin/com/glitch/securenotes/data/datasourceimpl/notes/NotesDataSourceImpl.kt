@@ -49,7 +49,7 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return result
+            return result.map { decryptNote(it) }
         }
     }
 
@@ -79,7 +79,7 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return result
+            return result.map { decryptNote(it) }
         }
     }
 
@@ -114,7 +114,7 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return result
+            return result.map { decryptNote(it) }
         }
     }
 
@@ -133,7 +133,8 @@ class NotesDataSourceImpl(
                 Filters.`in`(NoteModel::sharedReaderUserIds.name, requestedUserId)
             )
         )
-        return notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
+        val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
+        return decryptNote(result)
     }
 
     private suspend fun getNotesById(noteIds: Set<String>): List<NoteModel> {
@@ -154,7 +155,7 @@ class NotesDataSourceImpl(
         )
         val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
             .toList()
-        return result
+        return result.map { decryptNote(it) }
     }
 
     // CREATE
@@ -227,7 +228,7 @@ class NotesDataSourceImpl(
     override suspend fun updateNoteDescription(noteId: String, editorUserId: String, newDescription: String?): Boolean {
         val note = getNoteById(noteId)
         if (note.creatorId == editorUserId) {
-            val filter = Filters.eq("_id", noteId) // only owner can update title
+            val filter = Filters.eq("_id", noteId) // only owner can update description
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
             val newEncryptedDescription = if (newDescription!= null) {
                 AESEncryptor.encrypt(newDescription, encryptionKey)
@@ -242,6 +243,7 @@ class NotesDataSourceImpl(
         } else throw NoPermissionForEditException()
     }
 
+    // TODO: Add partially updated notes from NotesRoom
     override suspend fun updateNoteText(noteId: String, editorUserId: String, newText: String): Boolean {
         val note = getNoteById(noteId)
         if (note.creatorId == editorUserId || note.sharedEditorUserIds.contains(editorUserId)) {
@@ -383,7 +385,10 @@ class NotesDataSourceImpl(
             Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
             Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
         )
-        val update = Updates.pull(NoteModel::sharedEditorUserIds.name, userId)
+        val update = Updates.combine(
+            Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
+            Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
+        )
         val result = notes.updateMany(filter, update)
         return result.modifiedCount != 0L
     }
@@ -466,31 +471,23 @@ class NotesDataSourceImpl(
         return result.modifiedCount != 0L
     }
 
-    override suspend fun getNoteForRead(noteId: String, userId: String): NoteModel {
-        val filter = Filters.and(
-            Filters.eq("_id", noteId),
-            Filters.or(
-                Filters.eq(NoteModel::creatorId. name, userId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
-                Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
-            )
-        )
-
-        return notes.find(filter).singleOrNull()
-            ?: throw NoteNotFoundException()
+    override suspend fun getNoteEncryptionKeyForReading(noteId: String, userId: String): String {
+        val note = getNoteById(noteId)
+        if (
+            note.creatorId == userId
+            || note.sharedEditorUserIds.contains(userId)
+            || note.sharedReaderUserIds.contains(userId)
+        ) return AESEncryptor.decrypt(note.encryptionKey)
+        else throw NoteNotFoundException()
     }
 
-    override suspend fun getNoteForEdit(noteId: String, userId: String): NoteModel {
-        val filter = Filters.and(
-            Filters.eq("_id", noteId),
-            Filters.or(
-                Filters.eq(NoteModel::creatorId. name, userId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId)
-            )
-        )
-
-        return notes.find(filter).singleOrNull()
-            ?: throw NoteNotFoundException()
+    override suspend fun getNoteEncryptionKeyForEditing(noteId: String, userId: String): String {
+        val note = getNoteById(noteId)
+        if (
+            note.creatorId == userId
+            || note.sharedEditorUserIds.contains(userId)
+        ) return AESEncryptor.decrypt(note.encryptionKey)
+        else throw NoteNotFoundException()
     }
 
     // resource ids
@@ -615,7 +612,6 @@ class NotesDataSourceImpl(
         return result.deletedCount != 0L
     }
 
-    // its caller responsibility to delete files from this note
     override suspend fun deleteNoteForUser(userId: String, noteId: String): Boolean {
         val createdNoteFilter = Filters.and(
             Filters.eq("_id", noteId),
@@ -636,7 +632,6 @@ class NotesDataSourceImpl(
         return sharedNoteResult || createdNoteResult
     }
 
-    // its caller responsibility to delete resource files from this notes
     override suspend fun deleteNotesForUser(userId: String, noteIds: Set<String>): Boolean {
         val createdNotesFilter = Filters.and(
             Filters.`in`("_id", noteIds.toList()),
@@ -664,7 +659,6 @@ class NotesDataSourceImpl(
         return resultForUserCreatedNotes
     }
 
-    // its caller responsibility to delete resource files from this notes
     override suspend fun deleteAllNotesForUser(userId: String): Boolean {
         val sharedNotesResult = removeUserFromAllSharedNotes(userId)
         val createdNotesResult = deleteAllUserCreatedNotes(userId)
@@ -681,7 +675,8 @@ class NotesDataSourceImpl(
         )
     }
 
-    override fun decryptNote(note: NoteModel, decryptionKey: String): NoteModel {
+    override fun decryptNote(note: NoteModel): NoteModel {
+        val decryptionKey = AESEncryptor.decrypt(note.encryptionKey)
         return note.copy(
             title = note.title?.run { AESEncryptor.decrypt(this, secretKey = decryptionKey) },
             description = note.description?.run { AESEncryptor.decrypt(this, secretKey = decryptionKey) },
