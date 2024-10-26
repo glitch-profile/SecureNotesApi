@@ -12,14 +12,16 @@ interface NotesDataSource {
         userId: String,
         excludedNotesId: Set<String>,
         page: Int = 0,
-        limit: Int = -1
+        limit: Int = -1,
+        returnDecrypted: Boolean = true
     ): List<NoteModel>
 
     suspend fun getProtectedNotesForUser(
         userId: String,
         includedNotesIds: Set<String>,
         page: Int = 0,
-        limit: Int = -1
+        limit: Int = -1,
+        returnDecrypted: Boolean = true
     ): List<NoteModel>
 
     suspend fun getNotesForUser(
@@ -27,16 +29,25 @@ interface NotesDataSource {
         page: Int = 0,
         limit: Int = -1,
         onlyIncludedIds: Set<String> = emptySet(),
-        excludeIds: Set<String> = emptySet()
+        excludeIds: Set<String> = emptySet(),
+        returnDecrypted: Boolean = true
     ): List<NoteModel>
 
 //    suspend fun getNoteById(noteId: String): NoteModel
 
-    suspend fun getNoteById(noteId: String, requestedUserId: String): NoteModel
+    suspend fun getNoteById(
+        noteId: String,
+        requestedUserId: String,
+        returnDecrypted: Boolean = true
+    ): NoteModel
 
 //    suspend fun getNotesById(noteIds: Set<String>): List<NoteModel>
 
-    suspend fun getNotesById(noteIds: Set<String>, requestedUserId: String): List<NoteModel>
+    suspend fun getNotesById(
+        noteIds: Set<String>,
+        requestedUserId: String,
+        returnDecrypted: Boolean = true
+    ): List<NoteModel>
 
     // ADD
 
@@ -110,9 +121,9 @@ interface NotesDataSource {
 
     suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
-    suspend fun getNoteEncryptionKeyForReading(noteId:String, userId: String): String
+    suspend fun isNoteReadableForUser(noteId:String, userId: String): Boolean
 
-    suspend fun getNoteEncryptionKeyForEditing(noteId: String, userId: String): String
+    suspend fun isNoteEditableForUser(noteId: String, userId: String): Boolean
 
     // resource ids
 

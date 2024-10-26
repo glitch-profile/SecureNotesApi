@@ -1,6 +1,7 @@
 package com.glitch.securenotes.data.datasourceimpl.notes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
+import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
@@ -27,7 +28,8 @@ class NotesDataSourceImpl(
         userId: String,
         excludedNotesId: Set<String>,
         page: Int,
-        limit: Int
+        limit: Int,
+        returnDecrypted: Boolean
     ): List<NoteModel> {
         val filter = Filters.and(
             Filters.not(Filters.`in`("_id", excludedNotesId)),
@@ -40,7 +42,9 @@ class NotesDataSourceImpl(
             val result = notes.find(filter)
                 .sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
                 .toList()
-            return result
+            return if (returnDecrypted) {
+                result.map { decryptNote(it) }
+            } else result
         } else if (limit < 0 || page < 0) {
             throw IllegalArgumentException()
         } else {
@@ -49,7 +53,9 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return result.map { decryptNote(it) }
+            return if (returnDecrypted) {
+                result.map { decryptNote(it) }
+            } else result
         }
     }
 
@@ -57,7 +63,8 @@ class NotesDataSourceImpl(
         userId: String,
         includedNotesIds: Set<String>,
         page: Int,
-        limit: Int
+        limit: Int,
+        returnDecrypted: Boolean
     ): List<NoteModel> {
         val filter = Filters.and(
             Filters.`in`("_id", includedNotesIds),
@@ -70,7 +77,9 @@ class NotesDataSourceImpl(
             val result = notes.find(filter)
                 .sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
                 .toList()
-            return result
+            return if (returnDecrypted) {
+                result.map { decryptNote(it) }
+            } else result
         } else if (limit < 0 || page < 0) {
             throw IllegalArgumentException()
         } else {
@@ -79,7 +88,9 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return result.map { decryptNote(it) }
+            return if (returnDecrypted) {
+                result.map { decryptNote(it) }
+            } else result
         }
     }
 
@@ -88,7 +99,8 @@ class NotesDataSourceImpl(
         page: Int,
         limit: Int,
         onlyIncludedIds: Set<String>,
-        excludeIds: Set<String>
+        excludeIds: Set<String>,
+        returnDecrypted: Boolean
     ): List<NoteModel> {
         val filters = mutableListOf<Bson>().apply {
             add(Filters.eq(NoteModel::creatorId.name, userId))
@@ -105,7 +117,9 @@ class NotesDataSourceImpl(
             val result = notes.find(searchFilters)
                 .sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
                 .toList()
-            return result
+            return if (returnDecrypted) {
+                result.map { decryptNote(it) }
+            } else result
         } else if (limit < 0 || page < 0) {
             throw IllegalArgumentException()
         } else {
@@ -114,7 +128,9 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return result.map { decryptNote(it) }
+            return if (returnDecrypted) {
+                result.map { decryptNote(it) }
+            } else result
         }
     }
 
@@ -124,7 +140,11 @@ class NotesDataSourceImpl(
         return result
     }
 
-    override suspend fun getNoteById(noteId: String, requestedUserId: String): NoteModel {
+    override suspend fun getNoteById(
+        noteId: String,
+        requestedUserId: String,
+        returnDecrypted: Boolean
+    ): NoteModel {
         val filter = Filters.and(
             Filters.eq("_id", noteId),
             Filters.or(
@@ -134,7 +154,7 @@ class NotesDataSourceImpl(
             )
         )
         val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
-        return decryptNote(result)
+        return if (returnDecrypted) decryptNote(result) else result
     }
 
     private suspend fun getNotesById(noteIds: Set<String>): List<NoteModel> {
@@ -144,7 +164,11 @@ class NotesDataSourceImpl(
         return result
     }
 
-    override suspend fun getNotesById(noteIds: Set<String>, requestedUserId: String): List<NoteModel> {
+    override suspend fun getNotesById(
+        noteIds: Set<String>,
+        requestedUserId: String,
+        returnDecrypted: Boolean
+    ): List<NoteModel> {
         val filter = Filters.and(
             Filters.`in`("_id", noteIds),
             Filters.or(
@@ -155,7 +179,7 @@ class NotesDataSourceImpl(
         )
         val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
             .toList()
-        return result.map { decryptNote(it) }
+        return if (returnDecrypted) result.map { decryptNote(it) } else result
     }
 
     // CREATE
@@ -471,23 +495,27 @@ class NotesDataSourceImpl(
         return result.modifiedCount != 0L
     }
 
-    override suspend fun getNoteEncryptionKeyForReading(noteId: String, userId: String): String {
-        val note = getNoteById(noteId)
-        if (
-            note.creatorId == userId
-            || note.sharedEditorUserIds.contains(userId)
-            || note.sharedReaderUserIds.contains(userId)
-        ) return AESEncryptor.decrypt(note.encryptionKey)
-        else throw NoteNotFoundException()
+    override suspend fun isNoteReadableForUser(noteId: String, userId: String): Boolean {
+        try {
+            val note = getNoteById(noteId)
+            return (note.creatorId == userId
+                    || note.sharedEditorUserIds.contains(userId)
+                    || note.sharedReaderUserIds.contains(userId))
+        } catch (e: NoteNotFoundException) {
+            return false
+        }
     }
 
-    override suspend fun getNoteEncryptionKeyForEditing(noteId: String, userId: String): String {
-        val note = getNoteById(noteId)
-        if (
-            note.creatorId == userId
-            || note.sharedEditorUserIds.contains(userId)
-        ) return AESEncryptor.decrypt(note.encryptionKey)
-        else throw NoteNotFoundException()
+    override suspend fun isNoteEditableForUser(noteId: String, userId: String): Boolean {
+        try {
+            val note = getNoteById(noteId)
+            return (
+                note.creatorId == userId
+                || note.sharedEditorUserIds.contains(userId)
+            )
+        } catch (e: NoteNotFoundException) {
+            return false
+        }
     }
 
     // resource ids
