@@ -8,28 +8,23 @@ interface NoteResourcesDataSource {
     // GET
 
     suspend fun getResourceById(
-        resourceId: String
-    ): ResourceModel
-
-    suspend fun getResourceById(
         noteId: String,
         resourceId: String,
-        requestedUserId: String
+        requestedUserId: String,
+        returnDecrypted: Boolean = true
     ): ResourceModel
-
-    suspend fun getResourcesById(
-        resourceIds: Set<String>
-    ): List<ResourceModel>
 
     suspend fun getResourcesById(
         noteId: String,
         resourceIds: Set<String>,
-        requestedUserId: String
+        requestedUserId: String,
+        returnDecrypted: Boolean = true
     ): List<ResourceModel>
 
     suspend fun getResourcesForNote(
         noteId: String,
-        requestedUserId: String
+        requestedUserId: String,
+        returnDecrypted: Boolean = true
     ): List<ResourceModel>
 
     // ADD
@@ -69,7 +64,7 @@ interface NoteResourcesDataSource {
     suspend fun deleteResourceByIds(
         noteId: String,
         editorUserId: String,
-        resourceIds: List<String>
+        resourceIds: Set<String>
     ): Boolean
 
     suspend fun deleteResourceForNote(
@@ -78,7 +73,7 @@ interface NoteResourcesDataSource {
     ): Boolean
 
     suspend fun deleteResourceForNotes(
-        noteIds: List<String>,
+        noteIds: Set<String>,
         editorUserId: String
     )
 
@@ -92,6 +87,6 @@ interface NoteResourcesDataSource {
     fun decryptResource(
         resource: ResourceModel,
         decryptionKey: String
-    )
+    ): ResourceModel
 
 }
