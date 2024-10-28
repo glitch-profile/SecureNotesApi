@@ -1,7 +1,6 @@
 package com.glitch.securenotes.data.datasourceimpl.notes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
-import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
