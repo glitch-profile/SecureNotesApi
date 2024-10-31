@@ -15,13 +15,13 @@ val dataSourceModule = module {
         UserCredentialsDataSourceImpl(get())
     }
     single<UsersDataSource> {
-        UsersDataSourceImpl(get())
+        UsersDataSourceImpl(db = get(), usersCache = get())
     }
     single<NotesDataSource> {
-        NotesDataSourceImpl(db = get(), notesCache = get())
+        NotesDataSourceImpl(db = get())
     }
     single<NoteResourcesDataSource> {
-        NotesResourcesDataSourceImpl(db = get(), notesCache = get())
+        NotesResourcesDataSourceImpl(db = get(), notes = get(), fileManager = get())
     }
 
 }
