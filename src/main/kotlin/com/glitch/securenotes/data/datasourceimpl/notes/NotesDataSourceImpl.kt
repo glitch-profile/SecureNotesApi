@@ -5,7 +5,6 @@ import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
 import com.glitch.securenotes.data.model.entity.NoteModel
-import com.glitch.securenotes.domain.utils.notescache.NoteInfoCacheManager
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Updates
@@ -17,8 +16,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 
 class NotesDataSourceImpl(
-    db: MongoDatabase,
-    private val notesCache: NoteInfoCacheManager
+    db: MongoDatabase
 ): NotesDataSource {
 
     private val notes = db.getCollection<NoteModel>("UserNotes")

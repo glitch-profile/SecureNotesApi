@@ -8,8 +8,6 @@ import com.glitch.securenotes.domain.utils.filemanager.FileManager
 import com.glitch.securenotes.domain.utils.filemanager.FileManagerImpl
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessor
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessorImpl
-import com.glitch.securenotes.domain.utils.notescache.NoteInfoCacheManager
-import com.glitch.securenotes.domain.utils.notescache.NoteInfoCacheManagerImpl
 import org.koin.dsl.module
 
 val utilsModule = module {
@@ -24,9 +22,6 @@ val utilsModule = module {
     }
     single<ImageProcessor> {
         ImageProcessorImpl()
-    }
-    single<NoteInfoCacheManager> {
-        NoteInfoCacheManagerImpl()
     }
 
 }
