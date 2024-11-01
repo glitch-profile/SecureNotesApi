@@ -1,14 +1,14 @@
 package com.glitch.securenotes.data.datasourceimpl.notes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
+import com.glitch.securenotes.data.cache.datacache.NotesDataCache
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
 import com.glitch.securenotes.data.model.entity.NoteModel
-import com.mongodb.client.model.Filters
-import com.mongodb.client.model.Sorts
-import com.mongodb.client.model.Updates
+import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 import org.bson.conversions.Bson
@@ -16,7 +16,8 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 
 class NotesDataSourceImpl(
-    db: MongoDatabase
+    db: MongoDatabase,
+    private val notesCache: NotesDataCache
 ): NotesDataSource {
 
     private val notes = db.getCollection<NoteModel>("UserNotes")
@@ -25,8 +26,7 @@ class NotesDataSourceImpl(
         userId: String,
         excludedNotesId: Set<String>,
         page: Int,
-        limit: Int,
-        returnDecrypted: Boolean
+        limit: Int
     ): List<NoteModel> {
         val filter = Filters.and(
             Filters.not(Filters.`in`("_id", excludedNotesId)),
@@ -39,9 +39,7 @@ class NotesDataSourceImpl(
             val result = notes.find(filter)
                 .sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
                 .toList()
-            return if (returnDecrypted) {
-                result.map { decryptNote(it) }
-            } else result
+            return result.map { decryptNote(it) }
         } else if (limit < 0 || page < 0) {
             throw IllegalArgumentException()
         } else {
@@ -50,9 +48,7 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return if (returnDecrypted) {
-                result.map { decryptNote(it) }
-            } else result
+            return result.map { decryptNote(it) }
         }
     }
 
@@ -60,8 +56,7 @@ class NotesDataSourceImpl(
         userId: String,
         includedNotesIds: Set<String>,
         page: Int,
-        limit: Int,
-        returnDecrypted: Boolean
+        limit: Int
     ): List<NoteModel> {
         val filter = Filters.and(
             Filters.`in`("_id", includedNotesIds),
@@ -74,9 +69,7 @@ class NotesDataSourceImpl(
             val result = notes.find(filter)
                 .sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
                 .toList()
-            return if (returnDecrypted) {
-                result.map { decryptNote(it) }
-            } else result
+            return result.map { decryptNote(it) }
         } else if (limit < 0 || page < 0) {
             throw IllegalArgumentException()
         } else {
@@ -85,9 +78,7 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return if (returnDecrypted) {
-                result.map { decryptNote(it) }
-            } else result
+            return result.map { decryptNote(it) }
         }
     }
 
@@ -96,8 +87,7 @@ class NotesDataSourceImpl(
         page: Int,
         limit: Int,
         onlyIncludedIds: Set<String>,
-        excludeIds: Set<String>,
-        returnDecrypted: Boolean
+        excludeIds: Set<String>
     ): List<NoteModel> {
         val filters = mutableListOf<Bson>().apply {
             add(Filters.eq(NoteModel::creatorId.name, userId))
@@ -114,9 +104,7 @@ class NotesDataSourceImpl(
             val result = notes.find(searchFilters)
                 .sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
                 .toList()
-            return if (returnDecrypted) {
-                result.map { decryptNote(it) }
-            } else result
+            return result.map { decryptNote(it) }
         } else if (limit < 0 || page < 0) {
             throw IllegalArgumentException()
         } else {
@@ -125,12 +113,11 @@ class NotesDataSourceImpl(
                 .skip(page * limit)
                 .limit(limit)
                 .toList()
-            return if (returnDecrypted) {
-                result.map { decryptNote(it) }
-            } else result
+            return result.map { decryptNote(it) }
         }
     }
 
+    @Deprecated("use other version")
     private suspend fun getNoteById(noteId: String): NoteModel {
         val filter = Filters.eq("_id", noteId)
         val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
@@ -139,19 +126,31 @@ class NotesDataSourceImpl(
 
     override suspend fun getNoteById(
         noteId: String,
-        requestedUserId: String,
-        returnDecrypted: Boolean
+        requestedUserId: String
     ): NoteModel {
-        val filter = Filters.and(
-            Filters.eq("_id", noteId),
-            Filters.or(
-                Filters.eq(NoteModel::creatorId.name, requestedUserId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId),
-                Filters.`in`(NoteModel::sharedReaderUserIds.name, requestedUserId)
-            )
-        )
-        val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
-        return if (returnDecrypted) decryptNote(result) else result
+        if (notesCache.isNoteSaved(noteId)) {
+            val note = notesCache.getNoteById(noteId)!!
+            if (isUserCanRead(note, requestedUserId)) return note
+            else throw NoteNotFoundException()
+        } else {
+            val filter = Filters.eq("_id", noteId)
+            val note = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
+            if (isUserCanRead(note, requestedUserId)) {
+                val decryptedNote = decryptNote(note)
+                notesCache.addNoteToCache(decryptedNote)
+                return decryptedNote
+            } else throw NoteNotFoundException()
+        }
+//        val filter = Filters.and(
+//            Filters.eq("_id", noteId),
+//            Filters.or(
+//                Filters.eq(NoteModel::creatorId.name, requestedUserId),
+//                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId),
+//                Filters.`in`(NoteModel::sharedReaderUserIds.name, requestedUserId)
+//            )
+//        )
+//        val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
+//        return if (returnDecrypted) decryptNote(result) else result
     }
 
     private suspend fun getNotesById(noteIds: Set<String>): List<NoteModel> {
@@ -163,8 +162,7 @@ class NotesDataSourceImpl(
 
     override suspend fun getNotesById(
         noteIds: Set<String>,
-        requestedUserId: String,
-        returnDecrypted: Boolean
+        requestedUserId: String
     ): List<NoteModel> {
         val filter = Filters.and(
             Filters.`in`("_id", noteIds),
@@ -176,7 +174,7 @@ class NotesDataSourceImpl(
         )
         val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
             .toList()
-        return if (returnDecrypted) result.map { decryptNote(it) } else result
+        return result.map { decryptNote(it) }
     }
 
     // CREATE
@@ -198,6 +196,7 @@ class NotesDataSourceImpl(
         )
         val encryptedNote = encryptNote(noteData, encryptionKey = encryptionKey)
         notes.insertOne(encryptedNote)
+        notesCache.addNoteToCache(noteData)
         return noteData
     }
 
@@ -222,6 +221,7 @@ class NotesDataSourceImpl(
         )
         val encryptedNote = encryptNote(noteData, encryptionKey = encryptionKey)
         notes.insertOne(encryptedNote)
+        notesCache.addNoteToCache(noteData)
         return noteData
     }
 
@@ -229,7 +229,7 @@ class NotesDataSourceImpl(
 
     // info
     override suspend fun updateNoteTitle(noteId: String, editorUserId: String, newTitle: String?): Boolean {
-        val note = getNoteById(noteId)
+        val note = getNoteById(noteId, editorUserId)
         if (note.creatorId == editorUserId) {
             val filter = Filters.eq("_id", noteId) // only owner can update title
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
@@ -241,13 +241,17 @@ class NotesDataSourceImpl(
                 Updates.set(NoteModel::title.name, newEncryptedTitle),
                 Updates.set(NoteModel::lastEditTimestamp.name, currentTimestamp)
             )
-            return notes.updateOne(filter, update)
-                .modifiedCount != 0L
+            val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+            val result = notes.findOneAndUpdate(filter, update, updateOptions)
+            if (result != null) {
+                notesCache.updateSavedNote(result)
+                return true
+            } else return false
         } else throw NoPermissionForEditException()
     }
 
     override suspend fun updateNoteDescription(noteId: String, editorUserId: String, newDescription: String?): Boolean {
-        val note = getNoteById(noteId)
+        val note = getNoteById(noteId, editorUserId)
         if (note.creatorId == editorUserId) {
             val filter = Filters.eq("_id", noteId) // only owner can update description
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
@@ -259,15 +263,19 @@ class NotesDataSourceImpl(
                 Updates.set(NoteModel::description.name, newEncryptedDescription),
                 Updates.set(NoteModel::lastEditTimestamp.name, currentTimestamp)
             )
-            return notes.updateOne(filter, update)
-                .modifiedCount != 0L
+            val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+            val result = notes.findOneAndUpdate(filter, update, updateOptions)
+            if (result != null) {
+                notesCache.updateSavedNote(result)
+                return true
+            } else return false
         } else throw NoPermissionForEditException()
     }
 
     // TODO: Add partially updated notes from NotesRoom
     override suspend fun updateNoteText(noteId: String, editorUserId: String, newText: String): Boolean {
-        val note = getNoteById(noteId)
-        if (note.creatorId == editorUserId || note.sharedEditorUserIds.contains(editorUserId)) {
+        val note = getNoteById(noteId, editorUserId)
+        if (isUserCanEdit(note, editorUserId)) {
             val filter = Filters.eq("_id", noteId)
             val encryptionKey = AESEncryptor.decrypt(note.encryptionKey)
             val newEncryptedText = AESEncryptor.encrypt(newText, encryptionKey)
@@ -276,8 +284,12 @@ class NotesDataSourceImpl(
                 Updates.set(NoteModel::title.name, newEncryptedText),
                 Updates.set(NoteModel::lastEditTimestamp.name, currentTimestamp)
             )
-            return notes.updateOne(filter, update)
-                .modifiedCount != 0L
+            val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+            val result = notes.findOneAndUpdate(filter, update, updateOptions)
+            if (result != null) {
+                notesCache.updateSavedNote(result)
+                return true
+            } else return false
         } else throw NoPermissionForEditException()
     }
 
@@ -290,8 +302,12 @@ class NotesDataSourceImpl(
             Filters.eq(NoteModel::isSharing.name, false)
         )
         val update = Updates.set(NoteModel::isSharing.name, true)
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun disableNoteSharing(noteId: String, requestedUserId: String): Boolean {
@@ -305,8 +321,12 @@ class NotesDataSourceImpl(
             Updates.set(NoteModel::sharedEditorUserIds.name, emptyList<String>()),
             Updates.set(NoteModel::sharedReaderUserIds.name, emptyList<String>())
         )
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun addUserToSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean {
@@ -316,8 +336,12 @@ class NotesDataSourceImpl(
             Filters.eq(NoteModel::isSharing.name, true)
         )
         val update = Updates.addToSet(NoteModel::sharedEditorUserIds.name, userId)
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun removeUserFromSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean {
@@ -334,8 +358,12 @@ class NotesDataSourceImpl(
             )
         }
         val update = Updates.pull(NoteModel::sharedEditorUserIds.name, userId)
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun removeUsersFromSharedEditorIds(
@@ -349,8 +377,12 @@ class NotesDataSourceImpl(
             Filters.eq(NoteModel::isSharing.name, true)
         )
         val update = Updates.pullAll(NoteModel::sharedEditorUserIds.name, userIds.toList())
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun addUserToSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean {
@@ -360,8 +392,12 @@ class NotesDataSourceImpl(
             Filters.eq(NoteModel::isSharing.name, true)
         )
         val update = Updates.addToSet(NoteModel::sharedReaderUserIds.name, userId)
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun removeUserFromSharedReaderIds(
@@ -382,8 +418,12 @@ class NotesDataSourceImpl(
             )
         }
         val update = Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun removeUsersFromSharedReaderIds(
@@ -397,8 +437,12 @@ class NotesDataSourceImpl(
             Filters.eq(NoteModel::isSharing.name, true)
         )
         val update = Updates.pullAll(NoteModel::sharedReaderUserIds.name, userIds.toList())
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun removeUserFromAllSharedNotes(userId: String): Boolean {
@@ -410,6 +454,21 @@ class NotesDataSourceImpl(
             Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
             Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
         )
+        val notesToUpdate = notes.find(filter).map {
+            it.copy(
+                sharedEditorUserIds = if (it.sharedEditorUserIds.contains(userId)) {
+                    it.sharedEditorUserIds.toMutableSet().apply {
+                        remove(userId)
+                    }
+                } else it.sharedEditorUserIds,
+                sharedReaderUserIds = if (it.sharedReaderUserIds.contains(userId)) {
+                    it.sharedReaderUserIds.toMutableSet().apply {
+                        remove(userId)
+                    }
+                } else it.sharedReaderUserIds
+            )
+        }.toList()
+        notesCache.updateSavedNotesIfExists(notesToUpdate)
         val result = notes.updateMany(filter, update)
         return result.modifiedCount != 0L
     }
@@ -428,8 +487,12 @@ class NotesDataSourceImpl(
             Updates.pull(NoteModel::sharedReaderUserIds.name, userId),
             Updates.addToSet(NoteModel::sharedEditorUserIds.name, requestedUserId)
         )
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun moveUserToReaders(noteId: String, requestedUserId: String, userId: String): Boolean {
@@ -443,8 +506,12 @@ class NotesDataSourceImpl(
             Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
             Updates.addToSet(NoteModel::sharedReaderUserIds.name, userId)
         )
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun moveUsersToReaders(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean {
@@ -458,8 +525,12 @@ class NotesDataSourceImpl(
             Updates.pullAll(NoteModel::sharedEditorUserIds.name, userIds.toList()),
             Updates.addEachToSet(NoteModel::sharedReaderUserIds.name, userIds.toList())
         )
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun moveUserToEditors(noteId: String, requestedUserId: String, userId: String): Boolean {
@@ -473,8 +544,12 @@ class NotesDataSourceImpl(
             Updates.pull(NoteModel::sharedReaderUserIds.name, userId),
             Updates.addToSet(NoteModel::sharedEditorUserIds.name, userId)
         )
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun moveUsersToEditors(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean {
@@ -488,16 +563,18 @@ class NotesDataSourceImpl(
             Updates.pullAll(NoteModel::sharedReaderUserIds.name, userIds.toList()),
             Updates.addEachToSet(NoteModel::sharedEditorUserIds.name, userIds.toList())
         )
-        val result = notes.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = notes.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            notesCache.updateSavedNote(result)
+            return true
+        } else return false
     }
 
     override suspend fun isNoteReadableForUser(noteId: String, userId: String): Boolean {
         try {
-            val note = getNoteById(noteId)
-            return (note.creatorId == userId
-                    || note.sharedEditorUserIds.contains(userId)
-                    || note.sharedReaderUserIds.contains(userId))
+            getNoteById(noteId, userId)
+            return true
         } catch (e: NoteNotFoundException) {
             return false
         }
@@ -505,11 +582,8 @@ class NotesDataSourceImpl(
 
     override suspend fun isNoteEditableForUser(noteId: String, userId: String): Boolean {
         try {
-            val note = getNoteById(noteId)
-            return (
-                note.creatorId == userId
-                || note.sharedEditorUserIds.contains(userId)
-            )
+            val note = getNoteById(noteId, userId)
+            return isUserCanEdit(note, userId)
         } catch (e: NoteNotFoundException) {
             return false
         }
@@ -607,25 +681,20 @@ class NotesDataSourceImpl(
 
     // DELETE
 
-    private suspend fun deleteNoteById(noteId: String): Boolean {
-        val filter = Filters.eq("_id", noteId)
-        val result = notes.deleteOne(filter)
-        return result.deletedCount != 0L
-    }
+//    private suspend fun deleteNoteById(noteId: String): Boolean {
+//        val filter = Filters.eq("_id", noteId)
+//        val result = notes.deleteOne(filter)
+//        return result.deletedCount != 0L
+//    }
 
     override suspend fun deleteNoteById(noteId: String, requestedUserId: String): Boolean {
         val filter = Filters.and(
             Filters.eq("_id", noteId),
             Filters.eq(NoteModel::creatorId.name, requestedUserId)
         )
-        val result = notes.deleteOne(filter)
-        return result.deletedCount != 0L
-    }
-
-    private suspend fun deleteNotesById(noteIds: Set<String>): Boolean {
-        val filter = Filters.`in`("_id", noteIds)
-        val result = notes.deleteMany(filter)
-        return result.deletedCount != 0L
+        val result = notes.findOneAndDelete(filter)
+        if (result != null) notesCache.deleteNoteById(result.id)
+        return result != null
     }
 
     override suspend fun deleteNotesById(noteIds: Set<String>, requestedUserId: String): Boolean {
@@ -633,6 +702,8 @@ class NotesDataSourceImpl(
             Filters.`in`("_id", noteIds),
             Filters.eq(NoteModel::creatorId.name, requestedUserId)
         )
+        val noteIdsToDelete = notes.find(filter).map { it.id }.toList()
+        notesCache.deleteNotesByIds(noteIdsToDelete)
         val result = notes.deleteMany(filter)
         return result.deletedCount != 0L
     }
@@ -642,19 +713,27 @@ class NotesDataSourceImpl(
             Filters.eq("_id", noteId),
             Filters.eq(NoteModel::creatorId.name, userId)
         )
-        val sharedNoteFilter = Filters.and(
-            Filters.eq("_id", noteId),
-            Filters.ne(NoteModel::creatorId.name, userId)
-        )
-        val sharedNoteUpdate = Updates.combine(
-            Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
-            Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
-        )
-        val sharedNoteResult = notes.updateOne(sharedNoteFilter, sharedNoteUpdate)
-            .modifiedCount != 0L
-        val createdNoteResult = notes.deleteOne(createdNoteFilter)
-            .deletedCount != 0L
-        return sharedNoteResult || createdNoteResult
+        val createdNoteToDelete = notes.find(createdNoteFilter).singleOrNull()
+        if (createdNoteToDelete != null) {
+            notesCache.deleteNoteById(createdNoteToDelete.id)
+            return notes.deleteOne(createdNoteFilter)
+                .deletedCount != 0L
+        } else {
+            val sharedNoteFilter = Filters.and(
+                Filters.eq("_id", noteId),
+                Filters.ne(NoteModel::creatorId.name, userId)
+            )
+            val sharedNoteUpdate = Updates.combine(
+                Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
+                Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
+            )
+            val sharedNoteUpdateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+            val sharedNoteResult = notes.findOneAndUpdate(sharedNoteFilter, sharedNoteUpdate, sharedNoteUpdateOptions)
+            if (sharedNoteResult != null) {
+                notesCache.updateSavedNote(sharedNoteResult)
+                return true
+            } else return false
+        }
     }
 
     override suspend fun deleteNotesForUser(userId: String, noteIds: Set<String>): Boolean {
@@ -670,6 +749,23 @@ class NotesDataSourceImpl(
             Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
             Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
         )
+        val createdNotesIdsToDelete = notes.find(createdNotesFilter).map { it.id }.toList()
+        notesCache.deleteNotesByIds(createdNotesIdsToDelete)
+        val sharedNotesToUpdate = notes.find(sharedNotesFilter).map {
+            it.copy(
+                sharedEditorUserIds = if (it.sharedEditorUserIds.contains(userId)) {
+                    it.sharedEditorUserIds.toMutableSet().apply {
+                        remove(userId)
+                    }
+                } else it.sharedEditorUserIds,
+                sharedReaderUserIds = if (it.sharedReaderUserIds.contains(userId)) {
+                    it.sharedReaderUserIds.toMutableSet().apply {
+                        remove(userId)
+                    }
+                } else it.sharedReaderUserIds
+            )
+        }.toList()
+        notesCache.updateSavedNotesIfExists(sharedNotesToUpdate)
         val createdNotesResult = notes.deleteMany(createdNotesFilter)
             .deletedCount != 0L
         val sharedNotesResult = notes.updateMany(sharedNotesFilter, sharedNotesUpdate)
@@ -679,6 +775,8 @@ class NotesDataSourceImpl(
 
     override suspend fun deleteAllUserCreatedNotes(userId: String): Boolean {
         val userCreatedNotesFilter = Filters.eq(NoteModel::creatorId.name, userId)
+        val notesIdsToDelete = notes.find(userCreatedNotesFilter).map { it.id }.toList()
+        notesCache.deleteNotesByIds(notesIdsToDelete)
         val resultForUserCreatedNotes = notes.deleteMany(userCreatedNotesFilter)
             .deletedCount != 0L
         return resultForUserCreatedNotes
@@ -692,7 +790,21 @@ class NotesDataSourceImpl(
 
     // UTILS
 
-    override fun encryptNote(note: NoteModel, encryptionKey: String): NoteModel {
+    private fun isUserCanRead(note: NoteModel, userId: String): Boolean {
+        return if (note.isSharing) {
+            note.creatorId == userId
+                    || note.sharedEditorUserIds.contains(userId)
+                    || note.sharedReaderUserIds.contains(userId)
+        } else note.creatorId == userId
+    }
+
+    private fun isUserCanEdit(note: NoteModel, userId: String): Boolean {
+        return if (note.isSharing) {
+            note.creatorId == userId || note.sharedEditorUserIds.contains(userId)
+        } else note.creatorId == userId
+    }
+
+    private fun encryptNote(note: NoteModel, encryptionKey: String): NoteModel {
         return note.copy(
             title = note.title?.run { AESEncryptor.decrypt(this, secretKey = encryptionKey) },
             description = note.description?.run { AESEncryptor.decrypt(this, secretKey = encryptionKey) },
@@ -700,7 +812,7 @@ class NotesDataSourceImpl(
         )
     }
 
-    override fun decryptNote(note: NoteModel): NoteModel {
+    private fun decryptNote(note: NoteModel): NoteModel {
         val decryptionKey = AESEncryptor.decrypt(note.encryptionKey)
         return note.copy(
             title = note.title?.run { AESEncryptor.decrypt(this, secretKey = decryptionKey) },

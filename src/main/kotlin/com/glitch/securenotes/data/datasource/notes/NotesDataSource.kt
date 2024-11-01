@@ -12,16 +12,14 @@ interface NotesDataSource {
         userId: String,
         excludedNotesId: Set<String>,
         page: Int = 0,
-        limit: Int = -1,
-        returnDecrypted: Boolean = true
+        limit: Int = -1
     ): List<NoteModel>
 
     suspend fun getProtectedNotesForUser(
         userId: String,
         includedNotesIds: Set<String>,
         page: Int = 0,
-        limit: Int = -1,
-        returnDecrypted: Boolean = true
+        limit: Int = -1
     ): List<NoteModel>
 
     suspend fun getNotesForUser(
@@ -29,24 +27,21 @@ interface NotesDataSource {
         page: Int = 0,
         limit: Int = -1,
         onlyIncludedIds: Set<String> = emptySet(),
-        excludeIds: Set<String> = emptySet(),
-        returnDecrypted: Boolean = true
+        excludeIds: Set<String> = emptySet()
     ): List<NoteModel>
 
 //    suspend fun getNoteById(noteId: String): NoteModel
 
     suspend fun getNoteById(
         noteId: String,
-        requestedUserId: String,
-        returnDecrypted: Boolean = true
+        requestedUserId: String
     ): NoteModel
 
 //    suspend fun getNotesById(noteIds: Set<String>): List<NoteModel>
 
     suspend fun getNotesById(
         noteIds: Set<String>,
-        requestedUserId: String,
-        returnDecrypted: Boolean = true
+        requestedUserId: String
     ): List<NoteModel>
 
     // ADD
@@ -162,11 +157,5 @@ interface NotesDataSource {
     suspend fun deleteAllUserCreatedNotes(userId: String): Boolean
 
     suspend fun deleteAllNotesForUser(userId: String): Boolean
-
-    // UTILS
-
-    fun encryptNote(note: NoteModel, encryptionKey: String): NoteModel
-
-    fun decryptNote(note: NoteModel): NoteModel
 
 }

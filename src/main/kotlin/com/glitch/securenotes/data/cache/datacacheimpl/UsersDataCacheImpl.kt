@@ -17,7 +17,7 @@ class UsersDataCacheImpl(
         if (users.containsKey(userId)) {
             val info = users[userId]!!
             users[userId] = info.copy(
-                lastUsesTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+                lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
             )
             return info.userModel
         }
@@ -31,12 +31,12 @@ class UsersDataCacheImpl(
     override fun addUserToCache(user: UserModel) {
         if (!isUserIdExists(user.id)) {
             if (users.size >= maxCacheSize) {
-                val oldestElement = users.minByOrNull { it.value.lastUsesTimestamp }!!
+                val oldestElement = users.minByOrNull { it.value.lastUsedTimestamp }!!
                 users.remove(oldestElement.key)
             }
             users[user.id] = CachedUserInfo(
                 userModel = user,
-                lastUsesTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+                lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
             )
         }
     }
@@ -45,7 +45,7 @@ class UsersDataCacheImpl(
         if (isUserIdExists(userModel.id)) {
             users[userModel.id] = CachedUserInfo(
                 userModel = userModel,
-                lastUsesTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+                lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
             )
         } else addUserToCache(userModel)
     }

@@ -18,7 +18,7 @@ val dataSourceModule = module {
         UsersDataSourceImpl(db = get(), usersCache = get())
     }
     single<NotesDataSource> {
-        NotesDataSourceImpl(db = get())
+        NotesDataSourceImpl(db = get(), notesCache = get())
     }
     single<NoteResourcesDataSource> {
         NotesResourcesDataSourceImpl(db = get(), notes = get(), fileManager = get())
