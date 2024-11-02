@@ -27,7 +27,13 @@ class NotesDataCacheImpl(
     override fun getNotesByIds(noteIds: List<String>): List<NoteModel> {
         val foundedNotes = mutableListOf<NoteModel>()
         noteIds.forEach {
-            notes[it]?.apply { foundedNotes.add(this.noteModel) }
+            val noteInfo = notes[it]
+            if (noteInfo != null) {
+                foundedNotes.add(noteInfo.noteModel)
+                notes[it] = noteInfo.copy(
+                    lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+                )
+            }
         }
         return foundedNotes.toList()
     }
@@ -40,7 +46,7 @@ class NotesDataCacheImpl(
         if (!isNoteSaved(noteModel.id)) {
             if (notes.size >= maxCacheSize) {
                 val oldestNote = notes.minByOrNull { it.value.lastUsedTimestamp }!!
-                notes.remove(oldestNote.key)
+                deleteNoteById(oldestNote.key)
             }
             notes[noteModel.id] = CachedNoteModel(
                 noteModel = noteModel,

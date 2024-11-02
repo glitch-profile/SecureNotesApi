@@ -32,7 +32,7 @@ class UsersDataCacheImpl(
         if (!isUserIdExists(user.id)) {
             if (users.size >= maxCacheSize) {
                 val oldestElement = users.minByOrNull { it.value.lastUsedTimestamp }!!
-                users.remove(oldestElement.key)
+                deleteUserById(oldestElement.key)
             }
             users[user.id] = CachedUserInfo(
                 userModel = user,
