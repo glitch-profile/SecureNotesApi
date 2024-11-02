@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.toList
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-class NotesResourcesDataSourceImpl(
+class NoteResourcesDataSourceImpl(
     db: MongoDatabase,
     private val notes: NotesDataSource,
     private val fileManager: FileManager
