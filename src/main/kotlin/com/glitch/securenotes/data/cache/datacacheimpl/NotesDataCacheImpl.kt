@@ -55,6 +55,15 @@ class NotesDataCacheImpl(
                 noteModel = noteModel,
                 lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
             )
+        }
+    }
+
+    override fun updateSavedNoteOrAdd(noteModel: NoteModel) {
+        if (isNoteSaved(noteModel.id)) {
+            notes[noteModel.id] = CachedNoteModel(
+                noteModel = noteModel,
+                lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+            )
         } else addNoteToCache(noteModel)
     }
 

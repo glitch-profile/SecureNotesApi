@@ -54,7 +54,7 @@ class NotesResourcesDataSourceImpl(
         returnDecrypted: Boolean
     ): ResourceModel {
         checkUserReadPermission(noteId, requestedUserId)
-        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId, false).encryptionKey
+        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId).encryptionKey
         val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
         val resource = decryptResource(getResourceById(noteId = noteId, resourceId = resourceId), decryptedKey)
         return if (returnDecrypted) decryptResource(resource, decryptedKey) else resource
@@ -77,7 +77,7 @@ class NotesResourcesDataSourceImpl(
         returnDecrypted: Boolean
     ): List<ResourceModel> {
         checkUserReadPermission(noteId, requestedUserId)
-        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId, false).encryptionKey
+        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId).encryptionKey
         val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
         val resources = getResourcesById(noteId = noteId, resourceIds = resourceIds)
         return if (returnDecrypted) {
@@ -99,7 +99,7 @@ class NotesResourcesDataSourceImpl(
         returnDecrypted: Boolean
     ): List<ResourceModel> {
         checkUserReadPermission(noteId, requestedUserId)
-        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId, false)
+        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId)
             .encryptionKey
         val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
         val resources = getResourcesForNote(noteId)
@@ -118,7 +118,7 @@ class NotesResourcesDataSourceImpl(
         fileModel: FileModel
     ): ResourceModel {
         checkUserEditPermission(noteId, editorUserId)
-        val noteEncryptionKey = notes.getNoteById(noteId, editorUserId, false).encryptionKey
+        val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
         val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
         val resource = ResourceModel(
             noteId = noteId,
@@ -142,7 +142,7 @@ class NotesResourcesDataSourceImpl(
         newTitle: String
     ): Boolean {
         checkUserEditPermission(noteId, editorUserId)
-        val noteEncryptionKey = notes.getNoteById(noteId, editorUserId, false).encryptionKey
+        val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
         val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
         val newTitleEncrypted = AESEncryptor.encrypt(newTitle, encryptionKey)
         val filter = Filters.and(
@@ -168,7 +168,7 @@ class NotesResourcesDataSourceImpl(
         val updateDescription = if (newDescription.isNullOrBlank()) {
             Updates.set(ResourceModel::description.name, null)
         } else {
-            val noteEncryptionKey = notes.getNoteById(noteId, editorUserId, false).encryptionKey
+            val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
             val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
             val newDescriptionEncrypted = AESEncryptor.encrypt(newDescription, encryptionKey)
             Updates.set(ResourceModel::description.name, newDescriptionEncrypted)

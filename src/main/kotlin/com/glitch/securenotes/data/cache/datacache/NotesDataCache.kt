@@ -20,6 +20,8 @@ interface NotesDataCache {
 
     fun updateSavedNote(noteModel: NoteModel)
 
+    fun updateSavedNoteOrAdd(noteModel: NoteModel)
+
     fun updateSavedNotesIfExists(noteModels: List<NoteModel>)
 
     fun deleteNoteById(noteId: String)

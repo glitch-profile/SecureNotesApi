@@ -244,7 +244,7 @@ class NotesDataSourceImpl(
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val result = notes.findOneAndUpdate(filter, update, updateOptions)
             if (result != null) {
-                notesCache.updateSavedNote(result)
+                notesCache.updateSavedNoteOrAdd(result)
                 return true
             } else return false
         } else throw NoPermissionForEditException()
@@ -266,7 +266,7 @@ class NotesDataSourceImpl(
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val result = notes.findOneAndUpdate(filter, update, updateOptions)
             if (result != null) {
-                notesCache.updateSavedNote(result)
+                notesCache.updateSavedNoteOrAdd(result)
                 return true
             } else return false
         } else throw NoPermissionForEditException()
@@ -287,7 +287,7 @@ class NotesDataSourceImpl(
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val result = notes.findOneAndUpdate(filter, update, updateOptions)
             if (result != null) {
-                notesCache.updateSavedNote(result)
+                notesCache.updateSavedNoteOrAdd(result)
                 return true
             } else return false
         } else throw NoPermissionForEditException()
