@@ -1,7 +1,9 @@
 package com.glitch.securenotes.di
 
+import com.glitch.securenotes.data.cache.datacache.NoteResourcesDataCache
 import com.glitch.securenotes.data.cache.datacache.NotesDataCache
 import com.glitch.securenotes.data.cache.datacache.UsersDataCache
+import com.glitch.securenotes.data.cache.datacacheimpl.NoteResourceDataCacheImpl
 import com.glitch.securenotes.data.cache.datacacheimpl.NotesDataCacheImpl
 import com.glitch.securenotes.data.cache.datacacheimpl.UsersDataCacheImpl
 import org.koin.dsl.module
@@ -14,5 +16,8 @@ val cacheSystemsModule = module {
     }
     single<NotesDataCache> {
         NotesDataCacheImpl(maxCacheSize = MAX_CACHE_SIZE)
+    }
+    single<NoteResourcesDataCache> {
+        NoteResourceDataCacheImpl(maxCacheSize = MAX_CACHE_SIZE)
     }
 }
