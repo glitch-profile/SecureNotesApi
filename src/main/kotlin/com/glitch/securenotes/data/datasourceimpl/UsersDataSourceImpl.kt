@@ -50,7 +50,8 @@ class UsersDataSourceImpl(
             username = userName,
             profileAvatar = profileAvatar
         )
-        users.insertOne(userModel)
+        val encryptedUser = encryptUserInfo(userModel)
+        users.insertOne(encryptedUser)
         usersCache.addUserToCache(userModel)
         return userModel
     }
