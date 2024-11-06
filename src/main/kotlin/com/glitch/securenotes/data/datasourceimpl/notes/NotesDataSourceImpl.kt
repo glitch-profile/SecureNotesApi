@@ -5,9 +5,11 @@ import com.glitch.securenotes.data.cache.datacache.NotesDataCache
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
+import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.entity.NoteModel
 import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
@@ -117,7 +119,7 @@ class NotesDataSourceImpl(
         }
     }
 
-    @Deprecated("use other version")
+    @Deprecated("use other version", level = DeprecationLevel.ERROR)
     private suspend fun getNoteById(noteId: String): NoteModel {
         val filter = Filters.eq("_id", noteId)
         val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
@@ -128,31 +130,21 @@ class NotesDataSourceImpl(
         noteId: String,
         requestedUserId: String
     ): NoteModel {
-        if (notesCache.isNoteSaved(noteId)) {
-            val note = notesCache.getNoteById(noteId)!!
-            if (isUserCanRead(note, requestedUserId)) return note
-            else throw NoteNotFoundException()
+        return if (notesCache.isNoteSaved(noteId)) {
+            val foundedNote = notesCache.getNoteById(noteId) ?: throw NoteNotFoundException()
+            if (isUserCanRead(foundedNote, requestedUserId)) foundedNote else throw NoteNotFoundException()
         } else {
             val filter = Filters.eq("_id", noteId)
-            val note = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
-            if (isUserCanRead(note, requestedUserId)) {
-                val decryptedNote = decryptNote(note)
+            val foundedNote = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
+            if (isUserCanRead(foundedNote, requestedUserId)) {
+                val decryptedNote = decryptNote(foundedNote)
                 notesCache.addNoteToCache(decryptedNote)
-                return decryptedNote
+                decryptedNote
             } else throw NoteNotFoundException()
         }
-//        val filter = Filters.and(
-//            Filters.eq("_id", noteId),
-//            Filters.or(
-//                Filters.eq(NoteModel::creatorId.name, requestedUserId),
-//                Filters.`in`(NoteModel::sharedEditorUserIds.name, requestedUserId),
-//                Filters.`in`(NoteModel::sharedReaderUserIds.name, requestedUserId)
-//            )
-//        )
-//        val result = notes.find(filter).singleOrNull() ?: throw NoteNotFoundException()
-//        return if (returnDecrypted) decryptNote(result) else result
     }
 
+    @Deprecated("use other version", level = DeprecationLevel.ERROR)
     private suspend fun getNotesById(noteIds: Set<String>): List<NoteModel> {
         val filter = Filters.`in`("_id", noteIds)
         val result = notes.find(filter).sort(Sorts.descending(NoteModel::lastEditTimestamp.name))
@@ -244,7 +236,7 @@ class NotesDataSourceImpl(
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val result = notes.findOneAndUpdate(filter, update, updateOptions)
             if (result != null) {
-                notesCache.updateSavedNoteOrAdd(result)
+                notesCache.updateSavedNoteOrAdd(decryptNote(result))
                 return true
             } else return false
         } else throw NoPermissionForEditException()
@@ -266,7 +258,7 @@ class NotesDataSourceImpl(
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val result = notes.findOneAndUpdate(filter, update, updateOptions)
             if (result != null) {
-                notesCache.updateSavedNoteOrAdd(result)
+                notesCache.updateSavedNoteOrAdd(decryptNote(result))
                 return true
             } else return false
         } else throw NoPermissionForEditException()
@@ -287,7 +279,7 @@ class NotesDataSourceImpl(
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val result = notes.findOneAndUpdate(filter, update, updateOptions)
             if (result != null) {
-                notesCache.updateSavedNoteOrAdd(result)
+                notesCache.updateSavedNoteOrAdd(decryptNote(result))
                 return true
             } else return false
         } else throw NoPermissionForEditException()
@@ -305,7 +297,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -324,7 +316,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -339,7 +331,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -361,7 +353,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -380,7 +372,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -395,7 +387,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -421,7 +413,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -440,7 +432,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -454,8 +446,8 @@ class NotesDataSourceImpl(
             Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
             Updates.pull(NoteModel::sharedReaderUserIds.name, userId)
         )
-        val notesToUpdate = notes.find(filter).map {
-            it.copy(
+        val notesToUpdate = notes.find(filter).filter { notesCache.isNoteSaved(it.id) }.map {
+            val newNote = it.copy(
                 sharedEditorUserIds = if (it.sharedEditorUserIds.contains(userId)) {
                     it.sharedEditorUserIds.toMutableSet().apply {
                         remove(userId)
@@ -467,6 +459,7 @@ class NotesDataSourceImpl(
                     }
                 } else it.sharedReaderUserIds
             )
+            decryptNote(newNote)
         }.toList()
         notesCache.updateSavedNotesIfExists(notesToUpdate)
         val result = notes.updateMany(filter, update)
@@ -490,7 +483,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -509,7 +502,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -528,7 +521,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -547,7 +540,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -566,7 +559,7 @@ class NotesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = notes.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            notesCache.updateSavedNote(result)
+            notesCache.updateSavedNote(decryptNote(result))
             return true
         } else return false
     }
@@ -588,104 +581,6 @@ class NotesDataSourceImpl(
             return false
         }
     }
-
-    // resource ids
-
-//    override suspend fun getResourceIdsForNote(noteId: String, requestedUserId: String): Set<String> {
-//        val note = getNoteById(noteId, requestedUserId)
-//        return note.resourceIds
-//    }
-//
-//    override suspend fun getResourceIdsForNotes(noteIds: Set<String>, requestedUserId: String): Set<String> {
-//        val notes = getNotesById(noteIds, requestedUserId)
-//        val notesSet = mutableSetOf<String>()
-//        notes.forEach {
-//            notesSet.addAll(it.resourceIds)
-//        }
-//        return notesSet
-//    }
-//
-//    override suspend fun addResourceToNote(noteId: String, editorUserId: String, resourceId: String): Boolean {
-//        val filter = Filters.and(
-//            Filters.eq("_id", noteId),
-//            Filters.or(
-//                Filters.eq(NoteModel::creatorId.name, editorUserId),
-//                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
-//            )
-//        )
-//        val update = Updates.addToSet(NoteModel::resourceIds.name, resourceId)
-//        val result = notes.updateOne(filter, update)
-//            .modifiedCount != 0L
-//        return result
-//    }
-//
-//    override suspend fun addResourcesToNote(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean {
-//        val filter = Filters.and(
-//            Filters.eq("_id", noteId),
-//            Filters.or(
-//                Filters.eq(NoteModel::creatorId.name, editorUserId),
-//                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
-//            )
-//        )
-//        val update = Updates.addEachToSet(NoteModel::resourceIds.name, resourceIds.toList())
-//        val result = notes.updateOne(filter, update)
-//            .modifiedCount != 0L
-//        return result
-//    }
-//
-//    override suspend fun removeResourceFromNote(noteId: String, editorUserId: String, resourceId: String): Boolean {
-//        val filter = Filters.and(
-//            Filters.eq("_id", noteId),
-//            Filters.or(
-//                Filters.eq(NoteModel::creatorId.name, editorUserId),
-//                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
-//            )
-//        )
-//        val update = Updates.pull(NoteModel::resourceIds.name, resourceId)
-//        val result = notes.updateOne(filter, update)
-//            .modifiedCount != 0L
-//        return result
-//    }
-//
-//    override suspend fun removeResourcesFromNote(
-//        noteId: String,
-//        editorUserId: String,
-//        resourceIds: Set<String>
-//    ): Boolean {
-//        val filter = Filters.and(
-//            Filters.eq("_id", noteId),
-//            Filters.or(
-//                Filters.eq(NoteModel::creatorId.name, editorUserId),
-//                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
-//            )
-//        )
-//        val update = Updates.pullAll(NoteModel::resourceIds.name, resourceIds.toList())
-//        val result = notes.updateOne(filter, update)
-//            .modifiedCount != 0L
-//        return result
-//    }
-//
-//    override suspend fun removeAllResourcesFromNote(noteId: String, editorUserId: String): Boolean {
-//        val filter = Filters.and(
-//            Filters.eq("_id", noteId),
-//            Filters.or(
-//                Filters.eq(NoteModel::creatorId.name, editorUserId),
-//                Filters.`in`(NoteModel::sharedEditorUserIds.name, editorUserId)
-//            )
-//        )
-//        val update = Updates.set(NoteModel::resourceIds.name, emptyList<String>())
-//        val result = notes.updateOne(filter, update)
-//            .modifiedCount != 0L
-//        return result
-//    }
-
-    // DELETE
-
-//    private suspend fun deleteNoteById(noteId: String): Boolean {
-//        val filter = Filters.eq("_id", noteId)
-//        val result = notes.deleteOne(filter)
-//        return result.deletedCount != 0L
-//    }
 
     override suspend fun deleteNoteById(noteId: String, requestedUserId: String): Boolean {
         val filter = Filters.and(
@@ -751,8 +646,8 @@ class NotesDataSourceImpl(
         )
         val createdNotesIdsToDelete = notes.find(createdNotesFilter).map { it.id }.toList()
         notesCache.deleteNotesByIds(createdNotesIdsToDelete)
-        val sharedNotesToUpdate = notes.find(sharedNotesFilter).map {
-            it.copy(
+        val sharedNotesToUpdate = notes.find(sharedNotesFilter).filter{ notesCache.isNoteSaved(it.id) }.map {
+            val newNote = it.copy(
                 sharedEditorUserIds = if (it.sharedEditorUserIds.contains(userId)) {
                     it.sharedEditorUserIds.toMutableSet().apply {
                         remove(userId)
@@ -764,6 +659,7 @@ class NotesDataSourceImpl(
                     }
                 } else it.sharedReaderUserIds
             )
+            decryptNote(newNote)
         }.toList()
         notesCache.updateSavedNotesIfExists(sharedNotesToUpdate)
         val createdNotesResult = notes.deleteMany(createdNotesFilter)
@@ -806,8 +702,8 @@ class NotesDataSourceImpl(
 
     private fun encryptNote(note: NoteModel, encryptionKey: String): NoteModel {
         return note.copy(
-            title = note.title?.run { AESEncryptor.decrypt(this, secretKey = encryptionKey) },
-            description = note.description?.run { AESEncryptor.decrypt(this, secretKey = encryptionKey) },
+            title = note.title?.run { AESEncryptor.encrypt(this, secretKey = encryptionKey) },
+            description = note.description?.run { AESEncryptor.encrypt(this, secretKey = encryptionKey) },
             text = AESEncryptor.decrypt(note.text, secretKey = encryptionKey)
         )
     }
