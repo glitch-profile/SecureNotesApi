@@ -24,20 +24,22 @@ class UsersDataSourceImpl(
 
     private val users = db.getCollection<UserModel>("Users")
 
-    override suspend fun getOneUserById(userId: String): UserModel {
+    override suspend fun getUserById(userId: String): UserModel {
         if (usersCache.isUserIdExists(userId)) {
             return usersCache.getUserById(userId)!!
         } else {
             val filter = Filters.eq("_id", userId)
             val user =  users.find(filter).singleOrNull() ?: throw UserNotFoundException()
-            usersCache.addUserToCache(user)
-            return user
+            val decryptedUserInfo = decryptUserInfo(user)
+            usersCache.addUserToCache(decryptedUserInfo)
+            return decryptedUserInfo
         }
     }
 
-    override suspend fun getManyUsersById(userIds: List<String>): List<UserModel> {
+    override suspend fun getUsersByIds(userIds: List<String>): List<UserModel> {
         val filter = Filters.`in`("_id", userIds)
-        return users.find(filter).toList()
+        val userList =  users.find(filter).toList()
+        return userList.map { decryptUserInfo(it) }
     }
 
     override suspend fun addUser(
@@ -51,13 +53,6 @@ class UsersDataSourceImpl(
         users.insertOne(userModel)
         usersCache.addUserToCache(userModel)
         return userModel
-    }
-
-    override suspend fun deleteUserById(userId: String): Boolean {
-        val filter = Filters.eq("_id", userId)
-        val result = users.deleteOne(filter).deletedCount != 0L
-        if (result) usersCache.deleteUserById(userId)
-        return result
     }
 
     @Deprecated("use update*param* functions instead", level = DeprecationLevel.ERROR)
@@ -74,7 +69,7 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser !== null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
     }
@@ -94,7 +89,7 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
     }
@@ -105,7 +100,7 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
     }
@@ -115,18 +110,15 @@ class UsersDataSourceImpl(
         oldPassword: String?,
         newPassword: String
     ): Boolean {
-        val user = getOneUserById(userId)
-        val oldPasswordEncrypted = if (oldPassword != null) {
-            AESEncryptor.encrypt(oldPassword)
-        } else null
-        if (user.protectedNotePassword == oldPasswordEncrypted) {
+        val user = getUserById(userId)
+        if (user.protectedNotePassword == oldPassword) {
             val newPasswordEncrypted = AESEncryptor.encrypt(newPassword)
             val filter = Filters.eq("_id", userId)
             val update = Updates.set(UserModel::protectedNotePassword.name, newPasswordEncrypted)
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
             if (updatedUser != null) {
-                usersCache.updateSavedUser(updatedUser)
+                usersCache.updateSavedUser(decryptUserInfo(updatedUser))
                 return true
             } else throw UserNotFoundException()
         } else throw IncorrectSecuredNotesPasswordException()
@@ -141,20 +133,20 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
     }
 
     override suspend fun addNoteToProtected(userId: String, noteId: String): Boolean {
-        val user = getOneUserById(userId)
+        val user = getUserById(userId)
         if (user.protectedNotePassword != null) {
             val filter = Filters.eq("_id", userId)
             val update = Updates.addToSet(UserModel::protectedNoteIds.name, noteId)
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
             if (updatedUser != null) {
-                usersCache.updateSavedUser(updatedUser)
+                usersCache.updateSavedUser(decryptUserInfo(updatedUser))
                 return true
             } else throw UserNotFoundException()
         } else throw ProtectedNotesNotConfiguredException()
@@ -162,7 +154,7 @@ class UsersDataSourceImpl(
     }
 
     override suspend fun removeNoteFromProtected(userId: String, noteId: String, protectedNotesPassword: String): Boolean {
-        val user = getOneUserById(userId)
+        val user = getUserById(userId)
         if (user.protectedNotePassword != null) {
             val passwordEncrypted = AESEncryptor.encrypt(protectedNotesPassword)
             if (passwordEncrypted == user.protectedNotePassword) {
@@ -171,7 +163,7 @@ class UsersDataSourceImpl(
                 val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
                 val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
                 if (updatedUser != null) {
-                    usersCache.updateSavedUser(updatedUser)
+                    usersCache.updateSavedUser(decryptUserInfo(updatedUser))
                     return true
                 } else throw UserNotFoundException()
             } else throw IncorrectSecuredNotesPasswordException()
@@ -184,7 +176,7 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
     }
@@ -195,7 +187,7 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
     }
@@ -206,8 +198,33 @@ class UsersDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
-            usersCache.updateSavedUser(updatedUser)
+            usersCache.updateSavedUser(decryptUserInfo(updatedUser))
             return true
         } else throw UserNotFoundException()
+    }
+
+    // DELETE
+    override suspend fun deleteUserById(userId: String): Boolean {
+        val filter = Filters.eq("_id", userId)
+        val user = users.findOneAndDelete(filter)
+        if (user != null) usersCache.deleteUserById(user.id)
+        return user != null
+    }
+
+    // UTILS
+
+    private fun encryptUserInfo(user: UserModel): UserModel {
+        return user.copy(
+            username = AESEncryptor.encrypt(user.username),
+            protectedNotePassword = user.protectedNotePassword?.run { AESEncryptor.encrypt(this) }
+        )
+    }
+
+    private fun decryptUserInfo(user: UserModel): UserModel {
+        return user.copy(
+            username = AESEncryptor.decrypt(user.username),
+            protectedNotePassword = user.protectedNotePassword?.run { AESEncryptor.decrypt(this) }
+
+        )
     }
 }

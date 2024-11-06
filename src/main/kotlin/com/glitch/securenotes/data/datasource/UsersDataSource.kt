@@ -7,9 +7,9 @@ interface UsersDataSource {
 
     //GENERAL
 
-    suspend fun getOneUserById(userId: String): UserModel
+    suspend fun getUserById(userId: String): UserModel
 
-    suspend fun getManyUsersById(userIds: List<String>): List<UserModel>
+    suspend fun getUsersByIds(userIds: List<String>): List<UserModel>
 
     suspend fun addUser(
         userName: String,
