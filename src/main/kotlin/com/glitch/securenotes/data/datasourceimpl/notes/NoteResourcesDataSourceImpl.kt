@@ -1,6 +1,7 @@
 package com.glitch.securenotes.data.datasourceimpl.notes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
+import com.glitch.securenotes.data.cache.datacache.NoteResourcesDataCache
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
@@ -9,11 +10,9 @@ import com.glitch.securenotes.data.exceptions.resources.ResourceNotFoundExceptio
 import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.data.model.entity.ResourceModel
 import com.glitch.securenotes.domain.utils.filemanager.FileManager
-import com.mongodb.client.model.Filters
-import com.mongodb.client.model.Sorts
-import com.mongodb.client.model.Updates
+import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import kotlinx.coroutines.flow.singleOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -21,6 +20,7 @@ import java.time.ZoneId
 class NoteResourcesDataSourceImpl(
     db: MongoDatabase,
     private val notes: NotesDataSource,
+    private val resourceCache: NoteResourcesDataCache,
     private val fileManager: FileManager
 ): NoteResourcesDataSource {
 
@@ -38,74 +38,54 @@ class NoteResourcesDataSourceImpl(
             throw NoPermissionForEditException()
     }
 
-    private suspend fun getResourceById(noteId: String, resourceId: String): ResourceModel {
-        val filter = Filters.and(
-            Filters.eq(ResourceModel::noteId.name, noteId),
-            Filters.eq("_id", resourceId)
-        )
-        return resources.find(filter).singleOrNull()
-            ?: throw ResourceNotFoundException()
-    }
-
     override suspend fun getResourceById(
         noteId: String,
         resourceId: String,
         requestedUserId: String,
-        returnDecrypted: Boolean
     ): ResourceModel {
         checkUserReadPermission(noteId, requestedUserId)
-        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId).encryptionKey
-        val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
-        val resource = decryptResource(getResourceById(noteId = noteId, resourceId = resourceId), decryptedKey)
-        return if (returnDecrypted) decryptResource(resource, decryptedKey) else resource
-    }
-
-    private suspend fun getResourcesById(noteId: String, resourceIds: Set<String>): List<ResourceModel> {
-        val filter = Filters.and(
-            Filters.eq(ResourceModel::noteId.name, noteId),
-            Filters.`in`("_id", resourceIds)
-        )
-        return resources.find(filter)
-            .sort(Sorts.descending(ResourceModel::createdTimestamp.name))
-            .toList()
+        if (resourceCache.isResourceForNoteSaved(noteId, resourceId)) {
+            return resourceCache.getResourceById(noteId, resourceId)!!
+        } else {
+            val allResourcesForNote = getResourcesForNote(noteId, requestedUserId)
+            return allResourcesForNote.firstOrNull { it.id == resourceId }
+                ?: throw ResourceNotFoundException()
+        }
     }
 
     override suspend fun getResourcesById(
         noteId: String,
         resourceIds: Set<String>,
-        requestedUserId: String,
-        returnDecrypted: Boolean
+        requestedUserId: String
     ): List<ResourceModel> {
         checkUserReadPermission(noteId, requestedUserId)
-        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId).encryptionKey
-        val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
-        val resources = getResourcesById(noteId = noteId, resourceIds = resourceIds)
-        return if (returnDecrypted) {
-            resources.map { decryptResource(it, decryptedKey) }
-        } else resources
-    }
-
-    private suspend fun getResourcesForNote(noteId: String): List<ResourceModel> {
-        val filter = Filters.eq(ResourceModel::noteId.name, noteId)
-        val result = resources.find(filter)
-            .sort(Sorts.descending(ResourceModel::createdTimestamp.name))
-            .toList()
-        return result
+        if (resourceCache.isNoteKeyExists(noteId)) {
+            return resourceCache.getResourcesByIds(noteId, resourceIds.toList())!!
+        } else {
+            val allResources = getResourcesForNote(noteId, requestedUserId)
+            return allResources.filter { resourceIds.contains(it.id) }
+        }
     }
 
     override suspend fun getResourcesForNote(
         noteId: String,
-        requestedUserId: String,
-        returnDecrypted: Boolean
+        requestedUserId: String
     ): List<ResourceModel> {
         checkUserReadPermission(noteId, requestedUserId)
-        val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId)
-            .encryptionKey
-        val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
-        val resources = getResourcesForNote(noteId)
-        return if (returnDecrypted) {
-            resources.map { decryptResource(it, decryptedKey) }
-        } else resources
+        if (resourceCache.isNoteKeyExists(noteId)) {
+            return resourceCache.getResourcesForNote(noteId)!!
+        } else {
+            val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId)
+                .encryptionKey
+            val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
+            val filters = Filters.eq(ResourceModel::noteId.name, noteId)
+            val foundedResources = resources.find(filters)
+                .sort(Sorts.descending(ResourceModel::createdTimestamp.name))
+                .map { decryptResource(it, decryptedKey) }
+                .toList()
+            resourceCache.saveResourcesToCache(noteId, foundedResources)
+            return foundedResources
+        }
     }
 
     // ADD
@@ -129,7 +109,7 @@ class NoteResourcesDataSourceImpl(
         )
         val encryptedResource = encryptResource(resource, encryptionKey)
         resources.insertOne(encryptedResource)
-        // TODO: Add save to cache
+        resourceCache.addResourceToNote(noteId, resource)
         return resource
     }
 
@@ -154,8 +134,12 @@ class NoteResourcesDataSourceImpl(
             Updates.set(ResourceModel::title.name, newTitleEncrypted),
             Updates.set(ResourceModel::lastEditTimestamp.name, currentTimestamp)
         )
-        val result = resources.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = resources.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            resourceCache.updateResourceForNote(noteId, decryptResource(result, encryptionKey))
+        }
+        return result != null
     }
 
     override suspend fun updateResourceDescription(
@@ -165,25 +149,29 @@ class NoteResourcesDataSourceImpl(
         newDescription: String?
     ): Boolean {
         checkUserEditPermission(noteId, editorUserId)
-        val updateDescription = if (newDescription.isNullOrBlank()) {
-            Updates.set(ResourceModel::description.name, null)
-        } else {
-            val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
-            val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
-            val newDescriptionEncrypted = AESEncryptor.encrypt(newDescription, encryptionKey)
-            Updates.set(ResourceModel::description.name, newDescriptionEncrypted)
-        }
         val filter = Filters.and(
             Filters.eq("_id", resourceId),
             Filters.eq(ResourceModel::noteId.name, noteId)
         )
+        val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
+        val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
+        val updateDescription = if (newDescription.isNullOrBlank()) {
+            Updates.set(ResourceModel::description.name, null)
+        } else {
+            val newDescriptionEncrypted = AESEncryptor.encrypt(newDescription, encryptionKey)
+            Updates.set(ResourceModel::description.name, newDescriptionEncrypted)
+        }
         val currentTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
         val update = Updates.combine(
             updateDescription,
             Updates.set(ResourceModel::lastEditTimestamp.name, currentTimestamp)
         )
-        val result = resources.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = resources.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            resourceCache.updateResourceForNote(noteId, decryptResource(result, encryptionKey))
+        }
+        return result != null
     }
 
     // DELETE
@@ -200,8 +188,9 @@ class NoteResourcesDataSourceImpl(
 
     override suspend fun deleteResourceById(noteId: String, editorUserId: String, resourceId: String): Boolean {
         checkUserEditPermission(noteId, editorUserId)
-        val resource = getResourceById(noteId, resourceId)
+        val resource = getResourceById(noteId, resourceId, editorUserId)
         deleteFilesForResource(resource.file)
+        resourceCache.deleteResourceFromNote(noteId, resourceId)
         val filter = Filters.and(
             Filters.eq("_id", resourceId),
             Filters.eq(ResourceModel::noteId.name, noteId)
@@ -212,8 +201,9 @@ class NoteResourcesDataSourceImpl(
 
     override suspend fun deleteResourceByIds(noteId: String, editorUserId: String, resourceIds: Set<String>): Boolean {
         checkUserEditPermission(noteId, editorUserId)
-        val resourceList = getResourcesById(noteId, resourceIds = resourceIds)
+        val resourceList = getResourcesById(noteId, resourceIds, editorUserId)
         resourceList.forEach { deleteFilesForResource(it.file) }
+        resourceCache.deleteResourcesFromNote(noteId, resourceIds.toList())
         val filter = Filters.and(
             Filters.`in`("_id", resourceIds),
             Filters.eq(ResourceModel::noteId.name, noteId)
@@ -224,8 +214,9 @@ class NoteResourcesDataSourceImpl(
 
     override suspend fun deleteResourceForNote(noteId: String, editorUserId: String): Boolean {
         checkUserEditPermission(noteId, editorUserId)
-        val resourceList = getResourcesForNote(noteId)
+        val resourceList = getResourcesForNote(noteId, editorUserId)
         resourceList.forEach { deleteFilesForResource(it.file) }
+        resourceCache.deleteNoteFromCache(noteId)
         val filter = Filters.and(
             Filters.`in`(ResourceModel::noteId.name, noteId)
         )
@@ -241,7 +232,7 @@ class NoteResourcesDataSourceImpl(
 
     // UTILS
 
-    override fun encryptResource(resource: ResourceModel, encryptionKey: String): ResourceModel {
+    private fun encryptResource(resource: ResourceModel, encryptionKey: String): ResourceModel {
         val file = resource.file.copy(
             name = AESEncryptor.encrypt(resource.file.name, encryptionKey)
         )
@@ -252,7 +243,7 @@ class NoteResourcesDataSourceImpl(
         )
     }
 
-    override fun decryptResource(resource: ResourceModel, decryptionKey: String): ResourceModel {
+    private fun decryptResource(resource: ResourceModel, decryptionKey: String): ResourceModel {
         val file = resource.file.copy(
             name = AESEncryptor.decrypt(resource.file.name, decryptionKey)
         )
