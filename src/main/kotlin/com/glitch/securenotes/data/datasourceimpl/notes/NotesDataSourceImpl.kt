@@ -5,7 +5,6 @@ import com.glitch.securenotes.data.cache.datacache.NotesDataCache
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
-import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.entity.NoteModel
 import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoDatabase

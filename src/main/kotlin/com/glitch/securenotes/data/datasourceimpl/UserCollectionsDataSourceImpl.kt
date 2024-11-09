@@ -2,7 +2,6 @@ package com.glitch.securenotes.data.datasourceimpl
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.UserCollectionsDataSource
-import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.usercollections.CollectionNotFoundException
 import com.glitch.securenotes.data.model.entity.UserCollectionModel
 import com.mongodb.client.model.Filters
