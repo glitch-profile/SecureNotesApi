@@ -8,7 +8,7 @@ interface UserCollectionsDataSource {
 
     suspend fun getCollectionById(collectionId: String, userId: String): UserCollectionModel
 
-    suspend fun getCollectionsByIds(collectionsIds: String, userId: String): List<UserCollectionModel>
+    suspend fun getCollectionsByIds(collectionsIds: List<String>, userId: String): List<UserCollectionModel>
 
     suspend fun getCollectionForUser(userId: String): List<UserCollectionModel>
 
