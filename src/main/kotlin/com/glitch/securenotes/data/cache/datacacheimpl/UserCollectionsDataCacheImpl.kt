@@ -48,7 +48,7 @@ class UserCollectionsDataCacheImpl(
         if (!isCollectionsForUserSaved(userId)) {
             if (cache.size >= maxCacheSize) {
                 val collectionsInfoToDelete = cache.minByOrNull { it.value.lastUsedTimestamp }!!
-                cache.remove(collectionsInfoToDelete.key)
+                deleteCollectionsForUser(collectionsInfoToDelete.key)
             }
             val collectionsMap = ConcurrentMap<String, UserCollectionModel>()
             collections.forEach { collectionsMap[it.id] = it }
