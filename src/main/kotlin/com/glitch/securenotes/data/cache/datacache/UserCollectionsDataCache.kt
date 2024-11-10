@@ -12,7 +12,7 @@ interface UserCollectionsDataCache {
 
     fun getCollectionById(collectionId: String, userId: String): UserCollectionModel?
 
-    fun getCollectionsForUser(userId: String): List<UserCollectionModel>
+    fun getCollectionsForUser(userId: String): List<UserCollectionModel>?
 
     // ADD
 
