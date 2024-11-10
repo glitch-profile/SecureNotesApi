@@ -1,53 +1,58 @@
 package com.glitch.securenotes.data.datasourceimpl
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
+import com.glitch.securenotes.data.cache.datacache.UserCollectionsDataCache
 import com.glitch.securenotes.data.datasource.UserCollectionsDataSource
 import com.glitch.securenotes.data.exceptions.usercollections.CollectionNotFoundException
 import com.glitch.securenotes.data.model.entity.UserCollectionModel
-import com.mongodb.client.model.Filters
-import com.mongodb.client.model.Sorts
-import com.mongodb.client.model.Updates
+import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 
 // TODO: Implement cache system by user ids
 class UserCollectionsDataSourceImpl(
-    db: MongoDatabase
+    db: MongoDatabase,
+    private val cache: UserCollectionsDataCache
 ): UserCollectionsDataSource {
 
     private val collections = db.getCollection<UserCollectionModel>("UserCollections")
 
     // GET
 
+    // TODO: Rework this method
     override suspend fun getCollectionById(collectionId: String, userId: String): UserCollectionModel {
-        val filter = Filters.and(
-            Filters.eq("_id", collectionId),
-            Filters.eq(UserCollectionModel::userId.name, userId)
-        )
-        val result = collections.find(filter).singleOrNull() ?: throw CollectionNotFoundException()
-        return decryptCollection(result)
+        if (cache.isCollectionInfoSaved(userId, collectionId)) {
+            return cache.getCollectionById(collectionId, userId)!!
+        } else {
+//            val filter = Filters.and(
+//                Filters.eq("_id", collectionId),
+//                Filters.eq(UserCollectionModel::userId.name, userId)
+//            )
+//            val result = collections.find(filter).singleOrNull() ?: throw CollectionNotFoundException()
+//            return decryptCollection(result)
+            val foundedCollections = getCollectionForUser(userId)
+            return foundedCollections.firstOrNull { it.id == collectionId } ?: throw CollectionNotFoundException()
+        }
     }
 
-    override suspend fun getCollectionsByIds(collectionsIds: String, userId: String): List<UserCollectionModel> {
-        val filter = Filters.and(
-            Filters.`in`("_id", collectionsIds),
-            Filters.eq(UserCollectionModel::userId.name, userId)
-        )
-        val result = collections.find(filter)
-            .sort(Sorts.ascending(UserCollectionModel::title.name))
-            .toList()
-        val decryptedCollections = result.map { decryptCollection(it) }
-        return decryptedCollections
+    override suspend fun getCollectionsByIds(collectionsIds: List<String>, userId: String): List<UserCollectionModel> {
+        val foundedCollections = getCollectionForUser(userId)
+        return foundedCollections.filter { collectionsIds.contains(it.id) }
     }
 
     override suspend fun getCollectionForUser(userId: String): List<UserCollectionModel> {
-        val filter = Filters.eq(UserCollectionModel::userId.name, userId)
-        val result = collections.find(filter)
-            .sort(Sorts.ascending(UserCollectionModel::title.name))
-            .toList()
-        val decryptedCollections = result.map { decryptCollection(it) }
-        return decryptedCollections
+        if (cache.isCollectionsForUserSaved(userId)) {
+            return cache.getCollectionsForUser(userId)!!
+        } else {
+            val filter = Filters.eq(UserCollectionModel::userId.name, userId)
+            val result = collections.find(filter)
+                .sort(Sorts.ascending(UserCollectionModel::title.name))
+                .toList()
+            val decryptedCollections = result.map { decryptCollection(it) }
+            cache.saveCollectionsToCache(userId, decryptedCollections)
+            return decryptedCollections
+        }
     }
 
     // CREATE
@@ -59,6 +64,7 @@ class UserCollectionsDataSourceImpl(
             userId = userId
         )
         val encryptedCollection = encryptCollection(collection)
+        cache.addCollectionForUser(userId, collection)
         collections.insertOne(encryptedCollection)
         return collection
     }
@@ -72,8 +78,12 @@ class UserCollectionsDataSourceImpl(
         )
         val titleEncrypted = AESEncryptor.encrypt(newTitle)
         val update = Updates.set(UserCollectionModel::title.name, titleEncrypted)
-        val result = collections.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = collections.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            cache.updateCollection(userId, result)
+        }
+        return result != null
     }
 
     override suspend fun updateCollectionDescription(
@@ -87,8 +97,12 @@ class UserCollectionsDataSourceImpl(
         )
         val encryptedDescription = newDescription?.run { AESEncryptor.encrypt(this) }
         val update = Updates.set(UserCollectionModel::description.name, encryptedDescription)
-        val result = collections.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = collections.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            cache.updateCollection(userId, result)
+        }
+        return result != null
     }
 
     override suspend fun addNoteToCollection(collectionId: String, userId: String, noteId: String): Boolean {
@@ -97,8 +111,12 @@ class UserCollectionsDataSourceImpl(
             Filters.eq(UserCollectionModel::userId.name, userId)
         )
         val update = Updates.addToSet(UserCollectionModel::assignedNotes.name, noteId)
-        val result = collections.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = collections.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            cache.updateCollection(userId, result)
+        }
+        return result != null
     }
 
     override suspend fun addNotesToCollection(collectionId: String, userId: String, noteIds: List<String>): Boolean {
@@ -107,8 +125,12 @@ class UserCollectionsDataSourceImpl(
             Filters.eq(UserCollectionModel::userId.name, userId)
         )
         val update = Updates.addEachToSet(UserCollectionModel::assignedNotes.name, noteIds)
-        val result = collections.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = collections.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            cache.updateCollection(userId, result)
+        }
+        return result != null
     }
 
     override suspend fun removeNoteFromCollection(collectionId: String, userId: String, noteId: String): Boolean {
@@ -117,8 +139,12 @@ class UserCollectionsDataSourceImpl(
             Filters.eq(UserCollectionModel::userId.name, userId)
         )
         val update = Updates.pull(UserCollectionModel::assignedNotes.name, noteId)
-        val result = collections.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = collections.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            cache.updateCollection(userId, result)
+        }
+        return result != null
     }
 
     override suspend fun removeNotesFromCollection(
@@ -131,13 +157,18 @@ class UserCollectionsDataSourceImpl(
             Filters.eq(UserCollectionModel::userId.name, userId)
         )
         val update = Updates.pullAll(UserCollectionModel::assignedNotes.name, noteIds)
-        val result = collections.updateOne(filter, update)
-        return result.modifiedCount != 0L
+        val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+        val result = collections.findOneAndUpdate(filter, update, updateOptions)
+        if (result != null) {
+            cache.updateCollection(userId, result)
+        }
+        return result != null
     }
 
     // DELETE
 
     override suspend fun deleteCollectionById(collectionId: String, userId: String): Boolean {
+        cache.deleteCollectionById(userId, collectionId)
         val filter = Filters.and(
             Filters.eq("_id", collectionId),
             Filters.eq(UserCollectionModel::userId.name, userId)
@@ -147,6 +178,7 @@ class UserCollectionsDataSourceImpl(
     }
 
     override suspend fun deleteCollectionByIds(collectionIds: List<String>, userId: String): Boolean {
+        cache.deleteCollectionsByIds(userId, collectionIds)
         val filter = Filters.and(
             Filters.`in`("_id", collectionIds),
             Filters.eq(UserCollectionModel::userId.name, userId)
@@ -156,6 +188,7 @@ class UserCollectionsDataSourceImpl(
     }
 
     override suspend fun deleteCollectionsForUser(userId: String): Boolean {
+        cache.deleteCollectionsForUser(userId)
         val filter = Filters.eq(UserCollectionModel::userId.name, userId)
         val result = collections.deleteMany(filter)
         return result.deletedCount != 0L

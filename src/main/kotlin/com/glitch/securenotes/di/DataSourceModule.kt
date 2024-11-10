@@ -1,9 +1,11 @@
 package com.glitch.securenotes.di
 
+import com.glitch.securenotes.data.datasource.UserCollectionsDataSource
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
+import com.glitch.securenotes.data.datasourceimpl.UserCollectionsDataSourceImpl
 import com.glitch.securenotes.data.datasourceimpl.UserCredentialsDataSourceImpl
 import com.glitch.securenotes.data.datasourceimpl.UsersDataSourceImpl
 import com.glitch.securenotes.data.datasourceimpl.notes.NoteResourcesDataSourceImpl
@@ -22,6 +24,9 @@ val dataSourceModule = module {
     }
     single<NoteResourcesDataSource> {
         NoteResourcesDataSourceImpl(db = get(), notes = get(), fileManager = get(), resourceCache = get())
+    }
+    single<UserCollectionsDataSource> {
+        UserCollectionsDataSourceImpl(db = get(), cache = get())
     }
 
 }
