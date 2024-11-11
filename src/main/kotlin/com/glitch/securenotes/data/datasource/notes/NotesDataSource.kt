@@ -8,7 +8,7 @@ interface NotesDataSource {
 
     // GET
 
-    suspend fun getNotesForUser(
+    suspend fun getNotesForUserV2(
         userId: String,
         excludedNotesId: Set<String>,
         page: Int = 0,
@@ -22,7 +22,7 @@ interface NotesDataSource {
         limit: Int = -1
     ): List<NoteModel>
 
-    suspend fun getNotesForUser(
+    suspend fun getNotesForUserV2(
         userId: String,
         page: Int = 0,
         limit: Int = -1,

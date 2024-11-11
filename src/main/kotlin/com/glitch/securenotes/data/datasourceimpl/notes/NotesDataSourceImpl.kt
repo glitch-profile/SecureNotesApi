@@ -23,7 +23,8 @@ class NotesDataSourceImpl(
 
     private val notes = db.getCollection<NoteModel>("UserNotes")
 
-    override suspend fun getNotesForUser(
+    @Deprecated(message = "use getNotesForUserV2 instead", level = DeprecationLevel.WARNING)
+    override suspend fun getNotesForUserV2(
         userId: String,
         excludedNotesId: Set<String>,
         page: Int,
@@ -33,7 +34,8 @@ class NotesDataSourceImpl(
             Filters.not(Filters.`in`("_id", excludedNotesId)),
             Filters.or(
                 Filters.eq(NoteModel::creatorId.name, userId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId)
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
+                Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
             )
         )
         if (limit == -1) {
@@ -53,6 +55,7 @@ class NotesDataSourceImpl(
         }
     }
 
+    @Deprecated(message = "use getNotesForUserV2 instead", level = DeprecationLevel.WARNING)
     override suspend fun getProtectedNotesForUser(
         userId: String,
         includedNotesIds: Set<String>,
@@ -63,7 +66,8 @@ class NotesDataSourceImpl(
             Filters.`in`("_id", includedNotesIds),
             Filters.or(
                 Filters.eq(NoteModel::creatorId.name, userId),
-                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId)
+                Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
+                Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
             )
         )
         if (limit == -1) {
@@ -83,7 +87,7 @@ class NotesDataSourceImpl(
         }
     }
 
-    override suspend fun getNotesForUser(
+    override suspend fun getNotesForUserV2(
         userId: String,
         page: Int,
         limit: Int,
@@ -91,7 +95,13 @@ class NotesDataSourceImpl(
         excludeIds: Set<String>
     ): List<NoteModel> {
         val filters = mutableListOf<Bson>().apply {
-            add(Filters.eq(NoteModel::creatorId.name, userId))
+            add(
+                Filters.or(
+                    Filters.eq(NoteModel::creatorId.name, userId),
+                    Filters.`in`(NoteModel::sharedEditorUserIds.name, userId),
+                    Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
+                )
+            )
             if (onlyIncludedIds.isNotEmpty()) {
                 add(Filters.`in`("_id", onlyIncludedIds))
             }
