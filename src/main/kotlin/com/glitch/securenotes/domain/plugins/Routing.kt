@@ -4,6 +4,7 @@ import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
+import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.domain.routes.authRoutes
 import com.glitch.securenotes.domain.routes.userRoutes
@@ -30,6 +31,7 @@ fun Application.configureRouting() {
     val imageProcessor by inject<ImageProcessor>()
 
     val notesDataSource by inject<NotesDataSource>()
+    val noteResourcesDataSource by inject<NoteResourcesDataSource>()
 
     routing {
 
@@ -44,6 +46,8 @@ fun Application.configureRouting() {
             userCredentialsDataSource = userCredentialsDataSource,
             authSessionStorage = authSessionManager,
             fileManager = fileManager,
+            notesDataSource = notesDataSource,
+            noteResourcesDataSource = noteResourcesDataSource,
             imageProcessor = imageProcessor
         )
         utilRoutes()
