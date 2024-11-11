@@ -4,6 +4,8 @@ import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
+import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
+import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.IncorrectCredentialsException
 import com.glitch.securenotes.data.exceptions.auth.SessionNotFoundException
@@ -37,6 +39,8 @@ private const val MAX_FILE_SIZE = 5_242_880 // 5 MB in bytes
 fun Route.userRoutes(
     usersDataSource: UsersDataSource,
     userCredentialsDataSource: UserCredentialsDataSource,
+    notesDataSource: NotesDataSource,
+    noteResourcesDataSource: NoteResourcesDataSource,
     authSessionStorage: AuthSessionStorage,
     fileManager: FileManager,
     imageProcessor: ImageProcessor
@@ -200,7 +204,7 @@ fun Route.userRoutes(
             put("/update-username") {
                 val session = call.sessions.get<AuthSession>()!!
                 val userName = call.receiveText()
-                val userNameFormatted = userName.filterNot {
+                val userNameFormatted = userName.filter {
                     it.isLetterOrDigit() || it in "~_-+=*#@!<>,./?"
                 }.take(20)
                 try {
@@ -257,13 +261,6 @@ fun Route.userRoutes(
                             ApiResponseDto.Error<Unit>()
                         )
                     }
-                } catch (e: UserNotFoundException) {
-                    call.respond(
-                        ApiResponseDto.Error<Unit>(
-                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = ApiErrorCode::USER_NOT_FOUND.name
-                        )
-                    )
                 } catch (e: CredentialsNotFoundException) {
                     call.respond(
                         ApiResponseDto.Error<Unit>(
@@ -332,8 +329,13 @@ fun Route.userRoutes(
                     try {
                         val user = usersDataSource.getUserById(session.userId)
                         val usersProtectedNotes = user.protectedNoteIds
+                        val userCreatedProtectedNotes = notesDataSource.getNotesById(usersProtectedNotes, user.id)
+                            .asSequence()
+                            .filter { it.creatorId == user.id }
+                            .map { it.id }
+                        noteResourcesDataSource.deleteResourceForNotes(userCreatedProtectedNotes.toSet(), user.id)
+                        notesDataSource.deleteNotesForUser(user.id, usersProtectedNotes)
                         usersDataSource.resetUserProtectedNotesPassword(user.id)
-                        // TODO: remove protected notes and remove this user from protected shared notes
                     } catch (e: UserNotFoundException) {
                         call.respond(
                             ApiResponseDto.Error<Unit>(
@@ -354,7 +356,12 @@ fun Route.userRoutes(
                     user.activeSessions.forEach { sessionId ->
                         authSessionStorage.delete(sessionId)
                     }
-                    // TODO: delete all notes for user
+                    val userNotes = notesDataSource.getNotesForUserV2(userId = userId)
+                        .asSequence()
+                        .filter { it.creatorId == userId }
+                        .map { it.id }
+                    noteResourcesDataSource.deleteResourceForNotes(userNotes.toSet(), userId)
+                    notesDataSource.deleteAllNotesForUser(userId)
                     val result = usersDataSource.deleteUserById(userId)
                     if (result) {
                         call.respond(
