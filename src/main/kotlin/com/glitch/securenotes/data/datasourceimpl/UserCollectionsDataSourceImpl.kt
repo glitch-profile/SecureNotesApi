@@ -7,10 +7,8 @@ import com.glitch.securenotes.data.exceptions.usercollections.CollectionNotFound
 import com.glitch.securenotes.data.model.entity.UserCollectionModel
 import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 
-// TODO: Implement cache system by user ids
 class UserCollectionsDataSourceImpl(
     db: MongoDatabase,
     private val cache: UserCollectionsDataCache
@@ -25,12 +23,6 @@ class UserCollectionsDataSourceImpl(
         if (cache.isCollectionInfoSaved(userId, collectionId)) {
             return cache.getCollectionById(collectionId, userId)!!
         } else {
-//            val filter = Filters.and(
-//                Filters.eq("_id", collectionId),
-//                Filters.eq(UserCollectionModel::userId.name, userId)
-//            )
-//            val result = collections.find(filter).singleOrNull() ?: throw CollectionNotFoundException()
-//            return decryptCollection(result)
             val foundedCollections = getCollectionForUser(userId)
             return foundedCollections.firstOrNull { it.id == collectionId } ?: throw CollectionNotFoundException()
         }
