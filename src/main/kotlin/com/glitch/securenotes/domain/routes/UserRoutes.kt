@@ -17,6 +17,7 @@ import com.glitch.securenotes.data.model.dto.auth.AuthSessionOutgoingDto
 import com.glitch.securenotes.data.model.dto.users.UserInfoDto
 import com.glitch.securenotes.data.model.dto.users.UserUpdatePasswordDto
 import com.glitch.securenotes.data.model.entity.FileModel
+import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.filemanager.FileManager
@@ -48,7 +49,7 @@ fun Route.userRoutes(
 
     route("api/V1/users") {
 
-        authenticate("user") {
+        authenticate(AuthenticationLevel.USER) {
 
             put("/update-avatar") {
                 val session = call.sessions.get<AuthSession>()!!

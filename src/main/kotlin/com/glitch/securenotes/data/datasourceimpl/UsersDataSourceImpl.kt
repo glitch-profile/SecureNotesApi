@@ -16,7 +16,6 @@ import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 
-// TODO: Add encryption with server's secret
 class UsersDataSourceImpl(
     db: MongoDatabase,
     private val usersCache: UsersDataCache

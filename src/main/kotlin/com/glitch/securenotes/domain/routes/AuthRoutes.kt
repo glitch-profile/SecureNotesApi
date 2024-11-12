@@ -11,6 +11,7 @@ import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationDt
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountDto
 import com.glitch.securenotes.data.model.dto.auth.AuthOutgoingInfoDto
+import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
@@ -260,7 +261,7 @@ fun Route.authRoutes(
             }
         }
 
-        authenticate("user") {
+        authenticate(AuthenticationLevel.USER) {
 
             post("/confirm-code") {
                 try {

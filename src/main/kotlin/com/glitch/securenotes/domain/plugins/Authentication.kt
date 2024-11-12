@@ -9,7 +9,7 @@ import io.ktor.server.response.*
 fun Application.configureAuthentication() {
 
     install(Authentication) {
-        session<AuthSession>("guest") {
+        session<AuthSession>(AuthenticationLevel.GUEST) {
             validate { session ->
                 if (session.userId == "0") session else null
             }
@@ -17,7 +17,7 @@ fun Application.configureAuthentication() {
                 call.respond(HttpStatusCode.Unauthorized)
             }
         }
-        session<AuthSession>("user") {
+        session<AuthSession>(AuthenticationLevel.USER) {
             validate { session ->
                 if (session.userId != "0") session else null
             }
@@ -27,4 +27,9 @@ fun Application.configureAuthentication() {
         }
     }
 
+}
+
+object AuthenticationLevel {
+    const val GUEST = "guest"
+    const val USER = "user"
 }
