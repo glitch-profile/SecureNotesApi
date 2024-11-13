@@ -20,6 +20,7 @@ import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
+import com.glitch.securenotes.domain.utils.HeaderNames
 import com.glitch.securenotes.domain.utils.filemanager.FileManager
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessor
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessorConstants
@@ -162,9 +163,9 @@ fun Route.userRoutes(
                 }
             }
 
-            get("/{user_id}") {
+            get("/{${HeaderNames.userId}}") {
                 val session = call.sessions.get<AuthSession>()!!
-                val requestedUserId = call.request.pathVariables["user_id"] ?: kotlin.run {
+                val requestedUserId = call.request.pathVariables[HeaderNames.userId] ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
@@ -241,10 +242,14 @@ fun Route.userRoutes(
                     call.respond(HttpStatusCode.BadRequest)
                     return@put
                 }
+                if (passwordData.oldPassword == null || passwordData.newPassword == null) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@put
+                }
                 try {
-                    val newPasswordFormatted = passwordData.newPassword.filterNot {
-                        it.isISOControl() || it.isWhitespace()
-                    }.take(20)
+                    val newPasswordFormatted = passwordData.newPassword
+                        .filterNot { it.isISOControl() || it.isWhitespace() }
+                        .take(20)
                     val result = userCredentialsDataSource.updateCredentials(
                         userId = session.userId,
                         oldPassword = passwordData.oldPassword,
@@ -289,8 +294,8 @@ fun Route.userRoutes(
                     }
                     try {
                         val newPasswordFormatted = passwordData.newPassword
-                            .filter { it.isDigit() }
-                            .take(4)
+                            ?.filter { it.isDigit() }
+                            ?.take(4)
                         val result = usersDataSource.updateUserProtectedNotesPassword(
                             userId = session.userId,
                             oldPassword = passwordData.oldPassword,
@@ -357,6 +362,12 @@ fun Route.userRoutes(
                     user.activeSessions.forEach { sessionId ->
                         authSessionStorage.delete(sessionId)
                     }
+                    if (user.profileAvatar != null) {
+                        val avatarFilePath = fileManager.toLocalPath(user.profileAvatar.urlPath)
+                        val previewFilePath = fileManager.toLocalPath(user.profileAvatar.previewUrlPath!!)
+                        fileManager.deleteFile(avatarFilePath)
+                        fileManager.deleteFile(previewFilePath)
+                    }
                     val userNotes = notesDataSource.getNotesForUserV2(userId = userId)
                         .asSequence()
                         .filter { it.creatorId == userId }
@@ -420,9 +431,9 @@ fun Route.userRoutes(
                     }
                 }
 
-                post("/{sessionId}/destroy") {
+                post("/{${HeaderNames.sessionId}}/destroy") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val sessionId = call.pathParameters["sessionId"] ?: kotlin.run {
+                    val sessionId = call.pathParameters[HeaderNames.sessionId] ?: kotlin.run {
                         call.respond(HttpStatusCode.BadRequest)
                         return@post
                     }
@@ -460,7 +471,7 @@ fun Route.userRoutes(
 
                 post("/destroy") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val isIncludeClientSession = call.request.queryParameters["include-self"].toBoolean()
+                    val isIncludeClientSession = call.request.queryParameters[HeaderNames.includeSelfSession].toBoolean()
                     try {
                         val userInfo = usersDataSource.getUserById(session.userId)
                         val sessionIdsToDelete = if (!isIncludeClientSession) {

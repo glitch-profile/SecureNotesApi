@@ -14,6 +14,7 @@ import com.glitch.securenotes.data.model.dto.auth.AuthOutgoingInfoDto
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
+import com.glitch.securenotes.domain.utils.HeaderNames
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import com.glitch.securenotes.domain.utils.codeauth.CodeNotFoundException
 import io.ktor.http.*
@@ -53,8 +54,8 @@ fun Route.authRoutes(
         webSocket(
             path = "/otp-socket"
         ) {
-            val platform = call.request.queryParameters["platform"]
-            val appAgent = call.request.queryParameters["agent"]
+            val platform = call.request.queryParameters[HeaderNames.platformName]
+            val appAgent = call.request.queryParameters[HeaderNames.agentName]
             if (platform == null || appAgent == null) {
                 call.respond(HttpStatusCode.BadRequest)
                 return@webSocket
@@ -95,10 +96,10 @@ fun Route.authRoutes(
 
         post("/guest") {
             try {
-                val platform = call.request.queryParameters["platform"] ?: kotlin.run {
+                val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
                     call.request.header("sec-ch-ua-platform")
                 }
-                val agent = call.request.queryParameters["agent"] ?: kotlin.run {
+                val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
                     call.request.header("sec-ch-ua")
                 }
                 if (platform == null || agent == null) {
@@ -138,10 +139,10 @@ fun Route.authRoutes(
                     call.respond(HttpStatusCode.BadRequest)
                     return@post
                 }
-                val platform = call.request.queryParameters["platform"] ?: kotlin.run {
+                val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
                     call.request.header("sec-ch-ua-platform")
                 }
-                val agent = call.request.queryParameters["agent"] ?: kotlin.run {
+                val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
                     call.request.header("sec-ch-ua")
                 }
                 if (platform == null || agent == null) {
@@ -201,10 +202,10 @@ fun Route.authRoutes(
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-            val platform = call.request.queryParameters["platform"] ?: kotlin.run {
+            val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
                 call.request.header("sec-ch-ua-platform")
             }
-            val agent = call.request.queryParameters["agent"] ?: kotlin.run {
+            val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
                 call.request.header("sec-ch-ua")
             }
             if (platform == null || agent == null) {
