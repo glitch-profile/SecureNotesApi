@@ -140,7 +140,7 @@ class NotesDataSourceImpl(
         requestedUserId: String
     ): NoteModel {
         return if (notesCache.isNoteSaved(noteId)) {
-            val foundedNote = notesCache.getNoteById(noteId) ?: throw NoteNotFoundException()
+            val foundedNote = notesCache.getNoteById(noteId)!!
             if (isUserCanRead(foundedNote, requestedUserId)) foundedNote else throw NoteNotFoundException()
         } else {
             val filter = Filters.eq("_id", noteId)
@@ -184,29 +184,11 @@ class NotesDataSourceImpl(
         creatorId: String,
         title: String?,
         description: String?,
-        text: String
-    ): NoteModel {
-        val encryptionKey = AESEncryptor.generateSecret()
-        val protectedEncryptionKey = AESEncryptor.encrypt(encryptionKey)
-        val noteData = NoteModel(
-            creatorId = creatorId,
-            title = title,
-            description = description,
-            text = text,
-            encryptionKey = protectedEncryptionKey
-        )
-        val encryptedNote = encryptNote(noteData, encryptionKey = encryptionKey)
-        notes.insertOne(encryptedNote)
-        notesCache.addNoteToCache(noteData)
-        return noteData
-    }
-
-    override suspend fun createNewNote(
-        creatorId: String,
-        title: String?,
-        description: String?,
         text: String,
-        creationTimestamp: Long,
+        isShared: Boolean,
+        sharedEditorUserIds: Set<String>,
+        sharedReaderUserIds: Set<String>,
+        createdTimestamp: Long?,
         lastEditTimestamp: Long?
     ): NoteModel {
         val encryptionKey = AESEncryptor.generateSecret()
@@ -216,9 +198,12 @@ class NotesDataSourceImpl(
             title = title,
             description = description,
             text = text,
-            creationTimestamp = creationTimestamp,
-            lastEditTimestamp = lastEditTimestamp,
-            encryptionKey = protectedEncryptionKey
+            encryptionKey = protectedEncryptionKey,
+            isSharing = isShared,
+            sharedReaderUserIds = if (isShared) sharedReaderUserIds else emptySet(),
+            sharedEditorUserIds = if (isShared) sharedEditorUserIds else emptySet(),
+            creationTimestamp = createdTimestamp ?: OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
+            lastEditTimestamp = lastEditTimestamp
         )
         val encryptedNote = encryptNote(noteData, encryptionKey = encryptionKey)
         notes.insertOne(encryptedNote)

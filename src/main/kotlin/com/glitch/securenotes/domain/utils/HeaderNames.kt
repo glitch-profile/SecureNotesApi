@@ -16,5 +16,6 @@ object HeaderNames {
     const val pagingLimit = "limit"
     const val pagingPage = "page"
     const val securedNotesPassword = "notes_password"
+    const val newNoteSharingMode = "sharing-mode"
 
 }

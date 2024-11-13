@@ -6,12 +6,8 @@ import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
-import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
-import com.glitch.securenotes.data.exceptions.auth.IncorrectCredentialsException
 import com.glitch.securenotes.data.exceptions.auth.SessionNotFoundException
-import com.glitch.securenotes.data.exceptions.users.IncorrectSecuredNotesPasswordException
 import com.glitch.securenotes.data.exceptions.users.UnknownAvatarFormatException
-import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.auth.AuthSessionOutgoingDto
 import com.glitch.securenotes.data.model.dto.users.UserInfoDto
