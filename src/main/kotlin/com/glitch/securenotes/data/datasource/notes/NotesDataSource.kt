@@ -1,8 +1,6 @@
 package com.glitch.securenotes.data.datasource.notes
 
 import com.glitch.securenotes.data.model.entity.NoteModel
-import java.time.OffsetDateTime
-import java.time.ZoneId
 
 interface NotesDataSource {
 
@@ -30,14 +28,10 @@ interface NotesDataSource {
         excludeIds: Set<String> = emptySet()
     ): List<NoteModel>
 
-//    suspend fun getNoteById(noteId: String): NoteModel
-
     suspend fun getNoteById(
         noteId: String,
         requestedUserId: String
     ): NoteModel
-
-//    suspend fun getNotesById(noteIds: Set<String>): List<NoteModel>
 
     suspend fun getNotesById(
         noteIds: Set<String>,
@@ -50,15 +44,11 @@ interface NotesDataSource {
         creatorId: String,
         title: String?,
         description: String?,
-        text: String
-    ): NoteModel
-
-    suspend fun createNewNote(
-        creatorId: String,
-        title: String?,
-        description: String?,
         text: String,
-        creationTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
+        isShared: Boolean = false,
+        sharedEditorUserIds: Set<String> = emptySet(),
+        sharedReaderUserIds: Set<String> = emptySet(),
+        createdTimestamp: Long? = null,
         lastEditTimestamp: Long? = null
     ): NoteModel
 
@@ -122,11 +112,7 @@ interface NotesDataSource {
 
     // DELETE
 
-//    suspend fun deleteNoteById(noteId: String): Boolean
-
     suspend fun deleteNoteById(noteId: String, requestedUserId: String): Boolean
-
-//    suspend fun deleteNotesById(noteIds: Set<String>): Boolean
 
     suspend fun deleteNotesById(noteIds: Set<String>, requestedUserId: String): Boolean
 

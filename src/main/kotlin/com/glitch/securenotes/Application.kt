@@ -12,6 +12,7 @@ fun Application.module() {
     configureSessions()
     configureAuthentication()
     configureSerialization()
+    configureStatusPages()
     configureWebSockets()
     configureRouting()
 }

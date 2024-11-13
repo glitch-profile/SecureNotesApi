@@ -3,9 +3,7 @@ package com.glitch.securenotes.domain.routes
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
-import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
-import com.glitch.securenotes.data.exceptions.users.UserNotFoundException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginDto
@@ -16,7 +14,6 @@ import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.HeaderNames
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
-import com.glitch.securenotes.domain.utils.codeauth.CodeNotFoundException
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
