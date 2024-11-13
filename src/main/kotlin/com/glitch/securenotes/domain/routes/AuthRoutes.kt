@@ -95,106 +95,83 @@ fun Route.authRoutes(
         }
 
         post("/guest") {
-            try {
-                val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
-                    call.request.header("sec-ch-ua-platform")
-                }
-                val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
-                    call.request.header("sec-ch-ua")
-                }
-                if (platform == null || agent == null) {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@post
-                }
+            val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
+                call.request.header("sec-ch-ua-platform")
+            }
+            val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
+                call.request.header("sec-ch-ua")
+            }
+            if (platform == null || agent == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
 
-                val formattedPlatformName = platform.filterNot { it == '"' }
-                val formattedAgent = getUserBrowserData(agent)
-                val sessionId = generateSessionId()
-                authSessionsManager.createSession(
-                    sessionId = sessionId,
-                    userId = "0",
-                    platformName = formattedPlatformName,
-                    appVersion = formattedAgent,
-                    maxDurationInHours = null
-                )
-                val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
-                call.respond(
-                    ApiResponseDto.Success(
-                        data = AuthOutgoingInfoDto(
-                            sessionId = encryptedSessionId,
-                            userId = "0"
-                        )
+            val formattedPlatformName = platform.filterNot { it == '"' }
+            val formattedAgent = getUserBrowserData(agent)
+            val sessionId = generateSessionId()
+            authSessionsManager.createSession(
+                sessionId = sessionId,
+                userId = "0",
+                platformName = formattedPlatformName,
+                appVersion = formattedAgent,
+                maxDurationInHours = null
+            )
+            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
+            call.respond(
+                ApiResponseDto.Success(
+                    data = AuthOutgoingInfoDto(
+                        sessionId = encryptedSessionId,
+                        userId = "0"
                     )
                 )
-            } catch (e: Exception) {
-                call.respond(
-                    ApiResponseDto.Error<Unit>()
-                )
-            }
+            )
         }
 
         post("/login") {
-            try {
-                val authData = call.receiveNullable<AuthIncomingLoginDto>() ?: kotlin.run {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@post
-                }
-                val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
-                    call.request.header("sec-ch-ua-platform")
-                }
-                val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
-                    call.request.header("sec-ch-ua")
-                }
-                if (platform == null || agent == null) {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@post
-                }
-
-                val formattedPlatformName = platform.filterNot { it == '"' }
-                val formattedAgent = getUserBrowserData(agent)
-                val userId = userCredentialsDataSource.auth(
-                    login = authData.login.take(20),
-                    password = authData.password.take(20)
-                )
-                val user = usersDataSource.getUserById(userId)
-                // do some check here
-                val sessionId = generateSessionId()
-                authSessionsManager.createSession(
-                    sessionId = sessionId,
-                    userId = user.id,
-                    platformName = formattedPlatformName,
-                    appVersion = formattedAgent,
-                    maxDurationInHours = null
-                )
-                usersDataSource.addActiveSessionId(
-                    userId = user.id,
-                    sessionId = sessionId
-                )
-                val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
-                call.respond(
-                    ApiResponseDto.Success(
-                        data = AuthOutgoingInfoDto(
-                            sessionId = encryptedSessionId,
-                            userId = user.id
-                        )
-                    )
-                )
-            } catch (e: CredentialsNotFoundException) {
-                call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.AUTH_DATA_INCORRECT,
-                        message = ApiErrorCode::AUTH_DATA_INCORRECT.name
-                    )
-                )
-            } catch (e: UserNotFoundException) {
-                e.printStackTrace()
-                call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                        message = ApiErrorCode::USER_NOT_FOUND.name
-                    )
-                )
+            val authData = call.receiveNullable<AuthIncomingLoginDto>() ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
             }
+            val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
+                call.request.header("sec-ch-ua-platform")
+            }
+            val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
+                call.request.header("sec-ch-ua")
+            }
+            if (platform == null || agent == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+
+            val formattedPlatformName = platform.filterNot { it == '"' }
+            val formattedAgent = getUserBrowserData(agent)
+            val userId = userCredentialsDataSource.auth(
+                login = authData.login.take(20),
+                password = authData.password.take(20)
+            )
+            val user = usersDataSource.getUserById(userId)
+            // do some check here
+            val sessionId = generateSessionId()
+            authSessionsManager.createSession(
+                sessionId = sessionId,
+                userId = user.id,
+                platformName = formattedPlatformName,
+                appVersion = formattedAgent,
+                maxDurationInHours = null
+            )
+            usersDataSource.addActiveSessionId(
+                userId = user.id,
+                sessionId = sessionId
+            )
+            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
+            call.respond(
+                ApiResponseDto.Success(
+                    data = AuthOutgoingInfoDto(
+                        sessionId = encryptedSessionId,
+                        userId = user.id
+                    )
+                )
+            )
         }
 
         post("/signup") {
@@ -265,44 +242,28 @@ fun Route.authRoutes(
         authenticate(AuthenticationLevel.USER) {
 
             post("/confirm-code") {
-                try {
-                    val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationDto>() ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
-                    val session = call.sessions.get<AuthSession>()!!
-                    val userInfo = usersDataSource.getUserById(session.userId)
-                    val newSessionId = generateSessionId()
-                    val codeMemberAuthData = codeAuthenticator.getAuthMemberForCode(codeAuthData.code)
-                    authSessionsManager.createSession(
-                        sessionId = newSessionId,
-                        userId = userInfo.id,
-                        platformName = codeMemberAuthData.platform,
-                        appVersion = codeMemberAuthData.appVersion,
-                        maxDurationInHours = codeAuthData.maxDurationHours
-                    )
-                    codeAuthenticator.confirmCode(
-                        code = codeAuthData.code,
-                        sessionId = newSessionId
-                    )
-                    call.respond(
-                        ApiResponseDto.Success(null)
-                    )
-                } catch (e: UserNotFoundException) {
-                    call.respond(
-                        ApiResponseDto.Error<Unit>(
-                            apiErrorCode = ApiErrorCode.USER_NOT_FOUND,
-                            message = ApiErrorCode::USER_NOT_FOUND.name
-                        )
-                    )
-                } catch (e: CodeNotFoundException) {
-                    call.respond(
-                        ApiResponseDto.Error<Unit>(
-                            apiErrorCode = ApiErrorCode.AUTH_CODE_NOT_FOUND,
-                            message = ApiErrorCode::AUTH_CODE_NOT_FOUND.name
-                        )
-                    )
+                val codeAuthData = call.receiveNullable<AuthIncomingCodeConfirmationDto>() ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
                 }
+                val session = call.sessions.get<AuthSession>()!!
+                val userInfo = usersDataSource.getUserById(session.userId)
+                val newSessionId = generateSessionId()
+                val codeMemberAuthData = codeAuthenticator.getAuthMemberForCode(codeAuthData.code)
+                authSessionsManager.createSession(
+                    sessionId = newSessionId,
+                    userId = userInfo.id,
+                    platformName = codeMemberAuthData.platform,
+                    appVersion = codeMemberAuthData.appVersion,
+                    maxDurationInHours = codeAuthData.maxDurationHours
+                )
+                codeAuthenticator.confirmCode(
+                    code = codeAuthData.code,
+                    sessionId = newSessionId
+                )
+                call.respond(
+                    ApiResponseDto.Success(null)
+                )
             }
 
             get("/auth-info") {

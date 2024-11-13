@@ -24,7 +24,7 @@ class UserCredentialsDataSourceImpl(
             Filters.eq(UserCredentialsModel::login.name, loginEncrypted),
             Filters.eq(UserCredentialsModel::password.name, passwordEncrypted)
         )
-        val result = credentials.find(filter).singleOrNull() ?: throw IncorrectCredentialsException()
+        val result = credentials.find(filter).singleOrNull() ?: throw CredentialsNotFoundException()
         return result.userId
     }
 

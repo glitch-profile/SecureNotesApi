@@ -1,3 +1,5 @@
 package com.glitch.securenotes.data.exceptions.users
 
-class UnknownAvatarFormatException: Throwable("Unknown avatar format")
+import com.glitch.securenotes.domain.utils.filemanager.UnknownExtensionException
+
+class UnknownAvatarFormatException: UnknownExtensionException()
