@@ -108,13 +108,20 @@ class UsersDataSourceImpl(
     override suspend fun updateUserProtectedNotesPassword(
         userId: String,
         oldPassword: String?,
-        newPassword: String
+        newPassword: String?
     ): Boolean {
         val user = getUserById(userId)
         if (user.protectedNotePassword == oldPassword) {
-            val newPasswordEncrypted = AESEncryptor.encrypt(newPassword)
+            val newPasswordEncrypted = newPassword?.run { AESEncryptor.encrypt(newPassword) }
             val filter = Filters.eq("_id", userId)
-            val update = Updates.set(UserModel::protectedNotePassword.name, newPasswordEncrypted)
+            val update = if (newPassword != null) {
+                Updates.set(UserModel::protectedNotePassword.name, newPasswordEncrypted)
+            } else {
+                Updates.combine(
+                    Updates.unset(UserModel::protectedNotePassword.name),
+                    Updates.set(UserModel::protectedNoteIds.name, emptySet<String>())
+                )
+            }
             val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
             val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
             if (updatedUser != null) {
@@ -224,7 +231,6 @@ class UsersDataSourceImpl(
         return user.copy(
             username = AESEncryptor.decrypt(user.username),
             protectedNotePassword = user.protectedNotePassword?.run { AESEncryptor.decrypt(this) }
-
         )
     }
 }

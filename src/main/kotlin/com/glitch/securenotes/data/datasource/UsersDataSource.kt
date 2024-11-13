@@ -39,7 +39,7 @@ interface UsersDataSource {
     suspend fun updateUserProtectedNotesPassword(
         userId: String,
         oldPassword: String?,
-        newPassword: String
+        newPassword: String?
     ): Boolean
 
     suspend fun resetUserProtectedNotesPassword(
