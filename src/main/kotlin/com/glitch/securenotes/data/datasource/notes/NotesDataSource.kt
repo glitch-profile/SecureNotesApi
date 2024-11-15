@@ -82,15 +82,21 @@ interface NotesDataSource {
 
     suspend fun addUserToSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
+    suspend fun addUsersToSharedEditorIds(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
+
     suspend fun removeUserFromSharedEditorIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
     suspend fun removeUsersFromSharedEditorIds(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
 
     suspend fun addUserToSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
+    suspend fun addUsersToSharedReaderIds(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
+
     suspend fun removeUserFromSharedReaderIds(noteId: String, requestedUserId: String, userId: String): Boolean
 
     suspend fun removeUsersFromSharedReaderIds(noteId: String, requestedUserId: String, userIds: Set<String>): Boolean
+
+    suspend fun removeAllUsersFromSharedNote(noteId: String, requestedUserId: String): Boolean
 
     suspend fun removeUserFromAllSharedNotes(userId: String): Boolean
 

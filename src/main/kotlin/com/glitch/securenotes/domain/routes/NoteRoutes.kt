@@ -7,6 +7,7 @@ import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.notes.NewNoteIncomingInfoDto
 import com.glitch.securenotes.data.model.dto.notes.NoteSharingStatusDto
+import com.glitch.securenotes.data.model.dto.notes.UserListsIncomingDto
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
@@ -265,7 +266,8 @@ fun Route.noteRoutes(
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
                         }
-                        val newNoteSharingPolicy = call.queryParameters[HeaderNames.newNoteSharingMode] ?: kotlin.run {
+                        val newNoteSharingPolicy = call.queryParameters[HeaderNames.newNoteSharingMode]
+                        if (newNoteSharingPolicy != "shared" && newNoteSharingPolicy != "private") {
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
                         }
@@ -292,13 +294,127 @@ fun Route.noteRoutes(
                     }
 
                     // TODO: Complete section
-                    post("/add-users") {  }
+                    post("/add-users") {
+                        val session = call.sessions.get<AuthSession>()!!
+                        val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val userLists = call.receiveNullable<UserListsIncomingDto>() ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val editorIdsToAdd = userLists.editors.take(10)
+                        val readerIdsToAdd = userLists.readers.asSequence()
+                            .filter { !editorIdsToAdd.contains(it) }
+                            .take(10)
+                            .toList()
+                        if (editorIdsToAdd.isNotEmpty()) {
+                            val foundedEditors = usersDataSource.getUsersByIds(editorIdsToAdd)
+                                .map { it.id }
+                                .toSet()
+                            if (foundedEditors.isNotEmpty()) notesDataSource.addUsersToSharedEditorIds(
+                                noteId = noteId,
+                                requestedUserId = session.userId,
+                                userIds = foundedEditors
+                            )
+                        }
+                        if (readerIdsToAdd.isNotEmpty()) {
+                            val foundedReaders = usersDataSource.getUsersByIds(readerIdsToAdd)
+                                .map { it.id }
+                                .toSet()
+                            if (foundedReaders.isNotEmpty()) notesDataSource.addUsersToSharedReaderIds(
+                                noteId = noteId,
+                                requestedUserId = session.userId,
+                                userIds = foundedReaders
+                            )
+                        }
+                        call.respond(
+                            ApiResponseDto.Success(Unit)
+                        )
+                    }
 
-                    post("/remove-users") {  }
+                    post("/remove-users") {
+                        val session = call.sessions.get<AuthSession>()!!
+                        val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val userLists = call.receiveNullable<UserListsIncomingDto>() ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val editorIdsToRemove = userLists.editors.take(10).toSet()
+                        val readerIdsToRemove = userLists.readers.asSequence()
+                            .filter { !editorIdsToRemove.contains(it) }
+                            .take(10)
+                            .toSet()
+                        if (editorIdsToRemove.isNotEmpty()) {
+                            notesDataSource.removeUsersFromSharedEditorIds(
+                                noteId = noteId,
+                                requestedUserId = session.userId,
+                                userIds = editorIdsToRemove
+                            )
+                        }
+                        if (readerIdsToRemove.isNotEmpty()) {
+                            notesDataSource.removeUsersFromSharedReaderIds(
+                                noteId = noteId,
+                                requestedUserId = session.userId,
+                                userIds = readerIdsToRemove
+                            )
+                        }
+                        call.respond(
+                            ApiResponseDto.Success(Unit)
+                        )
+                    }
 
-                    post("/remove-all") {  }
+                    post("/remove-all") {
+                        val session = call.sessions.get<AuthSession>()!!
+                        val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val result = notesDataSource.removeAllUsersFromSharedNote(noteId, session.userId)
+                        call.respond(
+                            if (result) ApiResponseDto.Success(Unit)
+                            else ApiResponseDto.Error()
+                        )
+                    }
 
-                    post("/update-owner") {  }
+                    post("/update-owner") {
+                        val session = call.sessions.get<AuthSession>()!!
+                        val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val protectedNotesPassword = call.request.headers[HeaderNames.securedNotesPassword]
+                        val editorUser = usersDataSource.getUserById(session.userId)
+                        if (editorUser.protectedNoteIds.contains(noteId)) {
+                            if (protectedNotesPassword != editorUser.protectedNotePassword) {
+                                call.respond(
+                                    ApiResponseDto.Error<Unit>(
+                                        apiErrorCode = ApiErrorCode.PROTECTED_NOTES_PASSWORD_INCORRECT,
+                                        message = ApiErrorCode::PROTECTED_NOTES_PASSWORD_INCORRECT.name
+                                    )
+                                )
+                                return@post
+                            }
+                        }
+                        val newUserId = call.request.headers[HeaderNames.userId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val newUser = usersDataSource.getUserById(newUserId)
+                        val result = notesDataSource.updateNoteOwner(
+                            noteId = noteId,
+                            requestedUserId = session.userId,
+                            userId = newUser.id
+                        )
+                        call.respond(
+                            if (result) ApiResponseDto.Success(Unit)
+                            else ApiResponseDto.Error()
+                        )
+                    }
 
                 }
 
