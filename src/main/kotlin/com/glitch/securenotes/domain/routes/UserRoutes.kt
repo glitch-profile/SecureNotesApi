@@ -135,14 +135,10 @@ fun Route.userRoutes(
                 } else {
                     usersDataSource.clearUserProfileAvatar(user.id)
                 }
-                call.respond(
-                    ApiResponseDto.Success(
-                        data = null,
-                        message = "Avatar updated"
-                    )
-                )
+                call.respond(ApiResponseDto.Success(Unit))
             }
 
+            // TODO: Rework returned user model
             get("/{${HeaderNames.userId}}") {
                 val session = call.sessions.get<AuthSession>()!!
                 val requestedUserId = call.request.pathVariables[HeaderNames.userId] ?: kotlin.run {
@@ -185,16 +181,10 @@ fun Route.userRoutes(
                         userId = session.userId,
                         newUsername = userNameFormatted
                     )
-                    if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(
-                                data = null,
-                                message = "Username updated"
-                            )
-                        )
-                    } else {
-                        call.respond(ApiResponseDto.Error<Unit>())
-                    }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 } else call.respond(HttpStatusCode.BadRequest)
             }
 
@@ -216,18 +206,10 @@ fun Route.userRoutes(
                     oldPassword = passwordData.oldPassword,
                     newPassword = newPasswordFormatted
                 )
-                if (result) {
-                    call.respond(
-                        ApiResponseDto.Success(
-                            data = null,
-                            message = "Password updated"
-                        )
-                    )
-                } else {
-                    call.respond(
-                        ApiResponseDto.Error<Unit>()
-                    )
-                }
+                call.respond(
+                    if (result) ApiResponseDto.Success(Unit)
+                    else ApiResponseDto.Error()
+                )
             }
 
             route("/protected-notes") {
@@ -246,18 +228,10 @@ fun Route.userRoutes(
                         oldPassword = passwordData.oldPassword,
                         newPassword = newPasswordFormatted
                     )
-                    if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(
-                                data = null,
-                                message = "Password updated"
-                            )
-                        )
-                    } else {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>()
-                        )
-                    }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 }
 
                 put("/reset") {
@@ -270,7 +244,11 @@ fun Route.userRoutes(
                         .map { it.id }
                     noteResourcesDataSource.deleteResourceForNotes(userCreatedProtectedNotes.toSet(), user.id)
                     notesDataSource.deleteNotesForUser(user.id, usersProtectedNotes)
-                    usersDataSource.resetUserProtectedNotesPassword(user.id)
+                    val result = usersDataSource.resetUserProtectedNotesPassword(user.id)
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 }
 
             }
@@ -295,18 +273,10 @@ fun Route.userRoutes(
                 noteResourcesDataSource.deleteResourceForNotes(userNotes.toSet(), userId)
                 notesDataSource.deleteAllNotesForUser(userId)
                 val result = usersDataSource.deleteUserById(userId)
-                if (result) {
-                    call.respond(
-                        ApiResponseDto.Success(
-                            data = null,
-                            message = "User deleted"
-                        )
-                    )
-                } else {
-                    call.respond(
-                        ApiResponseDto.Error<Unit>()
-                    )
-                }
+                call.respond(
+                    if (result) ApiResponseDto.Success(Unit)
+                    else ApiResponseDto.Error()
+                )
             }
 
             route("/sessions") {
@@ -349,7 +319,7 @@ fun Route.userRoutes(
                         authSessionStorage.delete(sessionId)
                         call.respond(
                             ApiResponseDto.Success(
-                                data = null,
+                                data = Unit,
                                 message = "Session deleted"
                             )
                         )
@@ -379,17 +349,10 @@ fun Route.userRoutes(
                         userId = session.userId,
                         sessionsIds = sessionIdsToDelete
                     )
-                    if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(
-                                data = null
-                            )
-                        )
-                    } else {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>()
-                        )
-                    }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 }
 
             }

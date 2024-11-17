@@ -3,7 +3,6 @@ package com.glitch.securenotes.domain.routes
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
-import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingCodeConfirmationDto
 import com.glitch.securenotes.data.model.dto.auth.AuthIncomingLoginDto
@@ -11,7 +10,6 @@ import com.glitch.securenotes.data.model.dto.auth.AuthIncomingNewAccountDto
 import com.glitch.securenotes.data.model.dto.auth.AuthOutgoingInfoDto
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
-import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.HeaderNames
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import io.ktor.http.*
@@ -201,39 +199,29 @@ fun Route.authRoutes(
                 }.take(20)
             )
             val newUserModel = usersDataSource.addUser(authDataFormatted.login)
-            try {
-                userCredentialsDataSource.addCredentials(
-                    userId = newUserModel.id,
-                    login = authDataFormatted.login,
-                    password = authDataFormatted.password
-                )
-                val sessionId = generateSessionId()
-                authSessionsManager.createSession(
-                    sessionId = sessionId,
-                    userId = newUserModel.id,
-                    platformName = formattedPlatformName,
-                    appVersion = formattedAgent,
-                    maxDurationInHours = null
+            userCredentialsDataSource.addCredentials(
+                userId = newUserModel.id,
+                login = authDataFormatted.login,
+                password = authDataFormatted.password
+            )
+            val sessionId = generateSessionId()
+            authSessionsManager.createSession(
+                sessionId = sessionId,
+                userId = newUserModel.id,
+                platformName = formattedPlatformName,
+                appVersion = formattedAgent,
+                maxDurationInHours = null
 
-                )
-                val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
-                call.respond(
-                    ApiResponseDto.Success(
-                        data = AuthOutgoingInfoDto(
-                            sessionId = encryptedSessionId,
-                            userId = newUserModel.id
-                        )
+            )
+            val encryptedSessionId = authSessionsManager.encryptSessionId(sessionId)
+            call.respond(
+                ApiResponseDto.Success(
+                    data = AuthOutgoingInfoDto(
+                        sessionId = encryptedSessionId,
+                        userId = newUserModel.id
                     )
                 )
-            } catch (e: LoginAlreadyInUseException) {
-                kotlin.runCatching { usersDataSource.deleteUserById(newUserModel.id) }
-                call.respond(
-                    ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.CREDENTIALS_ALREADY_IN_USE,
-                        message = ApiErrorCode::CREDENTIALS_ALREADY_IN_USE.name
-                    )
-                )
-            }
+            )
         }
 
         authenticate(AuthenticationLevel.USER) {
@@ -259,7 +247,7 @@ fun Route.authRoutes(
                     sessionId = newSessionId
                 )
                 call.respond(
-                    ApiResponseDto.Success(null)
+                    ApiResponseDto.Success(Unit)
                 )
             }
 
