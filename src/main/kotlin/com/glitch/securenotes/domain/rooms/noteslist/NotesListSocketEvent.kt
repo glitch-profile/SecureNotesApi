@@ -16,7 +16,7 @@ import kotlinx.serialization.Serializable
 sealed class NotesListSocketEvent {
     abstract val initiatedUserId: String
     abstract val eventCode: Short
-    abstract val affectedNoteIds: List<String>?
+    abstract val affectedNoteId: String
     abstract val newRoleCode: Short?
     abstract val affectedNoteModel: NoteModel?
 
@@ -26,24 +26,24 @@ sealed class NotesListSocketEvent {
         override val affectedNoteModel: NoteModel
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_ADDED_NEW_NOTE
-        override val affectedNoteIds = null
+        override val affectedNoteId = affectedNoteModel.id
         override val newRoleCode = null
     }
 
     @Serializable
     data class UpdatedNote(
         override val initiatedUserId: String,
-        override val affectedNoteModel: NoteModel?
+        override val affectedNoteModel: NoteModel
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_UPDATED_NOTE
-        override val affectedNoteIds = null
+        override val affectedNoteId = affectedNoteModel.id
         override val newRoleCode = null
     }
 
     @Serializable
     data class DeletedNote(
         override val initiatedUserId: String,
-        override val affectedNoteIds: List<String>
+        override val affectedNoteId: String
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_DELETED_NOTE
         override val newRoleCode = null
@@ -53,11 +53,10 @@ sealed class NotesListSocketEvent {
     @Serializable
     data class UpdatedRole(
         override val initiatedUserId: String,
-        val affectedNoteId: String,
+        override val affectedNoteId: String,
         override val newRoleCode: Short
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_UPDATED_ROLE
-        override val affectedNoteIds = listOf(affectedNoteId)
         override val affectedNoteModel = null
     }
 
