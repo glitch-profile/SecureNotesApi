@@ -8,6 +8,7 @@ import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.domain.routes.authRoutes
+import com.glitch.securenotes.domain.routes.noteRoutes
 import com.glitch.securenotes.domain.routes.userRoutes
 import com.glitch.securenotes.domain.routes.utilRoutes
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
@@ -51,6 +52,11 @@ fun Application.configureRouting() {
             notesDataSource = notesDataSource,
             noteResourcesDataSource = noteResourcesDataSource,
             imageProcessor = imageProcessor
+        )
+        noteRoutes(
+            usersDataSource = usersDataSource,
+            notesDataSource = notesDataSource,
+            noteResourcesDataSource = noteResourcesDataSource
         )
         utilRoutes()
 
