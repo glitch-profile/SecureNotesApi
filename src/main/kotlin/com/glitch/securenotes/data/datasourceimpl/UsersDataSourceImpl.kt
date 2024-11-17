@@ -160,21 +160,37 @@ class UsersDataSourceImpl(
 
     }
 
-    override suspend fun removeNoteFromProtected(userId: String, noteId: String, protectedNotesPassword: String): Boolean {
+    override suspend fun removeNoteFromProtected(userId: String, noteId: String): Boolean {
         val user = getUserById(userId)
         if (user.protectedNotePassword != null) {
-            val passwordEncrypted = AESEncryptor.encrypt(protectedNotesPassword)
-            if (passwordEncrypted == user.protectedNotePassword) {
-                val filter = Filters.eq("_id", userId)
-                val update = Updates.pull(UserModel::protectedNoteIds.name, noteId)
-                val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
-                val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
-                if (updatedUser != null) {
-                    usersCache.updateSavedUser(decryptUserInfo(updatedUser))
-                    return true
-                } else throw UserNotFoundException()
-            } else throw IncorrectSecuredNotesPasswordException()
+            val filter = Filters.eq("_id", userId)
+            val update = Updates.pull(UserModel::protectedNoteIds.name, noteId)
+            val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+            val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
+            if (updatedUser != null) {
+                usersCache.updateSavedUser(decryptUserInfo(updatedUser))
+                return true
+            } else throw UserNotFoundException()
         } else throw ProtectedNotesNotConfiguredException()
+    }
+
+    override suspend fun removeNoteFromProtected(usersIds: List<String>, noteId: String): Boolean {
+        val filter = Filters.`in`("_id", usersIds)
+        val usersToUpdate = users.find(filter).toList().asSequence()
+            .filter { it.protectedNoteIds.contains(noteId) && usersCache.isUserIdExists(it.id) }
+            .map {
+                val newUserInfo = it.copy(
+                    protectedNoteIds = it.protectedNoteIds.toMutableSet().apply {
+                        remove(noteId)
+                    }
+                )
+                decryptUserInfo(newUserInfo)
+            }
+            .toList()
+        usersToUpdate.forEach { usersCache.updateSavedUser(it) }
+        val update = Updates.pull(UserModel::protectedNoteIds.name, noteId)
+        users.updateMany(filter, update)
+        return true
     }
 
     override suspend fun addActiveSessionId(userId: String, sessionId: String): Boolean {

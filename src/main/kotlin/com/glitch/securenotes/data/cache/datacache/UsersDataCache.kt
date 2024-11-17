@@ -10,7 +10,9 @@ interface UsersDataCache {
 
     fun addUserToCache(user: UserModel)
 
-    fun updateSavedUser(userModel: UserModel)
+    fun updateSavedUser(user: UserModel)
+
+    fun updateSavedUserOrAdd(user: UserModel)
 
     fun deleteUserById(userId: String)
 

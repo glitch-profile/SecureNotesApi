@@ -50,8 +50,12 @@ interface UsersDataSource {
 
     suspend fun removeNoteFromProtected(
         userId: String,
-        noteId: String,
-        protectedNotesPassword: String
+        noteId: String
+    ): Boolean
+
+    suspend fun removeNoteFromProtected(
+        usersIds: List<String>,
+        noteId: String
     ): Boolean
 
     // SESSIONS

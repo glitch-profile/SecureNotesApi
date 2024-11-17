@@ -41,13 +41,22 @@ class UsersDataCacheImpl(
         }
     }
 
-    override fun updateSavedUser(userModel: UserModel) {
-        if (isUserIdExists(userModel.id)) {
-            users[userModel.id] = CachedUserInfo(
-                userModel = userModel,
+    override fun updateSavedUser(user: UserModel) {
+        if (isUserIdExists(user.id)) {
+            users[user.id] = CachedUserInfo(
+                userModel = user,
                 lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
             )
-        } else addUserToCache(userModel)
+        }
+    }
+
+    override fun updateSavedUserOrAdd(user: UserModel) {
+        if (isUserIdExists(user.id)) {
+            users[user.id] = CachedUserInfo(
+                userModel = user,
+                lastUsedTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
+            )
+        } else addUserToCache(user)
     }
 
     override fun deleteUserById(userId: String) {
