@@ -9,6 +9,7 @@ import com.glitch.securenotes.data.model.dto.notes.NewNoteIncomingInfoDto
 import com.glitch.securenotes.data.model.dto.notes.NoteSharingStatusDto
 import com.glitch.securenotes.data.model.dto.notes.UserListsIncomingDto
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
+import com.glitch.securenotes.domain.rooms.noteslist.UserNotesRoomController
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.HeaderNames
@@ -18,6 +19,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
+import io.ktor.server.websocket.*
+import io.ktor.websocket.*
+import kotlinx.coroutines.channels.consumeEach
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import kotlin.math.min
@@ -25,12 +29,42 @@ import kotlin.math.min
 fun Route.noteRoutes(
     usersDataSource: UsersDataSource,
     notesDataSource: NotesDataSource,
+    notesRoomController: UserNotesRoomController,
     noteResourcesDataSource: NoteResourcesDataSource
 ) {
 
     route("/api/V1/notes") {
 
         authenticate(AuthenticationLevel.USER) {
+
+            webSocket {
+                val session = call.sessions.get<AuthSession>()!!
+                val user = usersDataSource.getUserById(session.userId)
+                try {
+                    notesRoomController.joinRoom(
+                        userId = user.id,
+                        userProtectedNotes = user.protectedNoteIds,
+                        webSocketSession = this
+                    )
+                    incoming.consumeEach { frame ->
+                        if (frame is Frame.Text) {
+                            val command = frame.readText()
+                            if (command == "hide-protected") {
+                                notesRoomController.disableUpdatesForSecuredNotes(user.id)
+                            } else if (command.startsWith("show-protected")) { // example: show-protected qwerty123
+                                val currentUserPassword = usersDataSource.getUserById(user.id).protectedNotePassword
+                                val enteredPassword = command.drop(15) //show-protected command prefix length
+                                if (enteredPassword == currentUserPassword) notesRoomController.enableUpdatesForSecuredNotes(user.id)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("NOTES ROUTES - LIST SOCKET - ERROR - ${e.stackTrace}")
+                } finally {
+                    notesRoomController.leaveRoom(user.id)
+                }
+
+            }
 
             get {
                 val session = call.sessions.get<AuthSession>()!!
@@ -409,6 +443,12 @@ fun Route.noteRoutes(
                             return@post
                         }
                         val result = usersDataSource.addNoteToProtected(session.userId, noteId)
+                        if (result) {
+                            notesRoomController.addNotesToProtected(
+                                userId = user.id,
+                                noteIds = setOf(noteId)
+                            )
+                        }
                         call.respond(
                             if (result) ApiResponseDto.Success(Unit)
                             else ApiResponseDto.Error()
@@ -433,6 +473,12 @@ fun Route.noteRoutes(
                             userId = session.userId,
                             noteId = noteId
                         )
+                        if (result) {
+                            notesRoomController.removeNotesFromProtected(
+                                userId = user.id,
+                                noteIds = setOf(noteId)
+                            )
+                        }
                         call.respond(
                             if (result) ApiResponseDto.Success(Unit)
                             else ApiResponseDto.Error()
