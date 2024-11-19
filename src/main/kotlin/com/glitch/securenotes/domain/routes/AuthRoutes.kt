@@ -55,7 +55,6 @@ fun Route.authRoutes(
                 call.respond(HttpStatusCode.BadRequest)
                 return@webSocket
             }
-            println(appAgent)
             val userId = codeAuthenticator.generateUserId()
             try {
                 codeAuthenticator.joinRoom(
