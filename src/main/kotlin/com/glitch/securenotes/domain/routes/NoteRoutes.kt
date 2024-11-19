@@ -6,13 +6,16 @@ import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.users.IncorrectSecuredNotesPasswordException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.notes.NewNoteIncomingInfoDto
+import com.glitch.securenotes.data.model.dto.notes.NoteCompactInfoDto
 import com.glitch.securenotes.data.model.dto.notes.NoteSharingStatusDto
 import com.glitch.securenotes.data.model.dto.notes.UserListsIncomingDto
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
+import com.glitch.securenotes.domain.rooms.noteslist.NotesListSocketEvent
 import com.glitch.securenotes.domain.rooms.noteslist.UserNotesRoomController
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.ApiErrorCode
 import com.glitch.securenotes.domain.utils.HeaderNames
+import com.glitch.securenotes.domain.utils.UserRoleCode
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
@@ -82,7 +85,8 @@ fun Route.noteRoutes(
                     limit = pagingLimit,
                     excludedNotesId = excludedNoteIds
                 )
-                call.respond(notes)
+                val notesCompactInfo = notes.map { it.toCompactInfo(user.id) }
+                call.respond(notesCompactInfo)
             }
 
             post("/create") {
@@ -107,9 +111,16 @@ fun Route.noteRoutes(
                     sharedReaderUserIds = formattedNoteInfo.readerUserIds,
                     sharedEditorUserIds = formattedNoteInfo.editorUserIds
                 )
+                notesRoomController.sendEventForUser(
+                    userId = session.userId,
+                    event = NotesListSocketEvent.NewNote(
+                        initiatedUserId = session.userId,
+                        affectedNoteModel = addedNote.toCompactRoomSocketInfo()
+                    )
+                )
                 call.respond(
                     ApiResponseDto.Success(
-                        data = addedNote
+                        data = addedNote.toCompactInfo(session.userId)
                     )
                 )
             }
@@ -140,6 +151,13 @@ fun Route.noteRoutes(
                     sharedEditorUserIds = formattedNoteInfo.editorUserIds,
                     createdTimestamp = formattedNoteInfo.createdTimestamp,
                     lastEditTimestamp = formattedNoteInfo.lastEditTimestamp
+                )
+                notesRoomController.sendEventForUser(
+                    userId = session.userId,
+                    event = NotesListSocketEvent.NewNote(
+                        initiatedUserId = session.userId,
+                        affectedNoteModel = addedNote.toCompactRoomSocketInfo()
+                    )
                 )
                 call.respond(
                     ApiResponseDto.Success(
@@ -189,16 +207,20 @@ fun Route.noteRoutes(
                     }
                     val result = notesDataSource.deleteNoteForUser(userId = session.userId, noteId = noteId)
                     if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(
-                                data = Unit
+                        val userIdsList = if (note.creatorId == session.userId) note.getAllUsers()
+                        else listOf(session.userId)
+                        notesRoomController.sendEventForUsers(
+                            userIds = userIdsList,
+                            event = NotesListSocketEvent.DeletedNote(
+                                initiatedUserId = session.userId,
+                                affectedNoteId = note.id
                             )
                         )
-                    } else {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>()
-                        )
                     }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 }
 
                 post("/update-title") {
@@ -219,15 +241,10 @@ fun Route.noteRoutes(
                         editorUserId = session.userId,
                         newTitle = newTitle
                     )
-                    if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(Unit)
-                        )
-                    } else {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>()
-                        )
-                    }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 }
 
                 post("/update-description") {
@@ -248,15 +265,10 @@ fun Route.noteRoutes(
                         editorUserId = session.userId,
                         newDescription = newDescription
                     )
-                    if (result) {
-                        call.respond(
-                            ApiResponseDto.Success(Unit)
-                        )
-                    } else {
-                        call.respond(
-                            ApiResponseDto.Error<Unit>()
-                        )
-                    }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
                 }
 
                 route("/sharing") {
@@ -297,8 +309,20 @@ fun Route.noteRoutes(
                             if (user.protectedNotePassword != securedNotePassword)
                                 throw IncorrectSecuredNotesPasswordException()
                         }
-                        val result = if (isShareNote) notesDataSource.enableNoteSharing(noteId, session.userId)
-                        else notesDataSource.disableNoteSharing(noteId, session.userId)
+                        val result = if (isShareNote) {
+                            notesDataSource.enableNoteSharing(noteId, session.userId)
+                        } else {
+                            val note = notesDataSource.getNoteById(noteId, session.userId)
+                            val disableSharingResult = notesDataSource.disableNoteSharing(noteId, session.userId)
+                            if (disableSharingResult) notesRoomController.sendEventForUsers(
+                                userIds = note.getSharedUsers(),
+                                event = NotesListSocketEvent.DeletedNote(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = note.id
+                                )
+                            )
+                            disableSharingResult
+                        }
                         call.respond(
                             if (result) ApiResponseDto.Success(Unit)
                             else ApiResponseDto.Error()
@@ -321,6 +345,7 @@ fun Route.noteRoutes(
                             if (user.protectedNotePassword != notePassword)
                                 throw IncorrectSecuredNotesPasswordException()
                         }
+                        val note = notesDataSource.getNoteById(noteId, session.userId)
                         val editorIdsToAdd = userLists.editors.take(10)
                         val readerIdsToAdd = userLists.readers.asSequence()
                             .filter { !editorIdsToAdd.contains(it) }
@@ -330,21 +355,39 @@ fun Route.noteRoutes(
                             val foundedEditors = usersDataSource.getUsersByIds(editorIdsToAdd)
                                 .map { it.id }
                                 .toSet()
-                            if (foundedEditors.isNotEmpty()) notesDataSource.addUsersToSharedEditorIds(
-                                noteId = noteId,
-                                requestedUserId = session.userId,
-                                userIds = foundedEditors
-                            )
+                            if (foundedEditors.isNotEmpty()) {
+                                notesDataSource.addUsersToSharedEditorIds(
+                                    noteId = noteId,
+                                    requestedUserId = session.userId,
+                                    userIds = foundedEditors
+                                )
+                                notesRoomController.sendEventForUsers(
+                                    userIds = foundedEditors.toList(),
+                                    event = NotesListSocketEvent.NewNote(
+                                        initiatedUserId = session.userId,
+                                        affectedNoteModel = note.toCompactRoomSocketInfo()
+                                    )
+                                )
+                            }
                         }
                         if (readerIdsToAdd.isNotEmpty()) {
                             val foundedReaders = usersDataSource.getUsersByIds(readerIdsToAdd)
                                 .map { it.id }
                                 .toSet()
-                            if (foundedReaders.isNotEmpty()) notesDataSource.addUsersToSharedReaderIds(
-                                noteId = noteId,
-                                requestedUserId = session.userId,
-                                userIds = foundedReaders
-                            )
+                            if (foundedReaders.isNotEmpty()) {
+                                notesDataSource.addUsersToSharedReaderIds(
+                                    noteId = noteId,
+                                    requestedUserId = session.userId,
+                                    userIds = foundedReaders
+                                )
+                                notesRoomController.sendEventForUsers(
+                                    userIds = foundedReaders.toList(),
+                                    event = NotesListSocketEvent.NewNote(
+                                        initiatedUserId = session.userId,
+                                        affectedNoteModel = note.toCompactRoomSocketInfo()
+                                    )
+                                )
+                            }
                         }
                         call.respond(
                             ApiResponseDto.Success(Unit)
@@ -372,12 +415,26 @@ fun Route.noteRoutes(
                                 requestedUserId = session.userId,
                                 userIds = editorIdsToRemove
                             )
+                            notesRoomController.sendEventForUsers(
+                                userIds = editorIdsToRemove.toList(),
+                                event = NotesListSocketEvent.DeletedNote(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = noteId
+                                )
+                            )
                         }
                         if (readerIdsToRemove.isNotEmpty()) {
                             notesDataSource.removeUsersFromSharedReaderIds(
                                 noteId = noteId,
                                 requestedUserId = session.userId,
                                 userIds = readerIdsToRemove
+                            )
+                            notesRoomController.sendEventForUsers(
+                                userIds = readerIdsToRemove.toList(),
+                                event = NotesListSocketEvent.DeletedNote(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = noteId
+                                )
                             )
                         }
                         call.respond(
@@ -392,6 +449,16 @@ fun Route.noteRoutes(
                             return@post
                         }
                         val result = notesDataSource.removeAllUsersFromSharedNote(noteId, session.userId)
+                        if (result) {
+                            val note = notesDataSource.getNoteById(noteId, session.userId)
+                            notesRoomController.sendEventForUsers(
+                                userIds = note.getSharedUsers(),
+                                event = NotesListSocketEvent.DeletedNote(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = noteId
+                                )
+                            )
+                        }
                         call.respond(
                             if (result) ApiResponseDto.Success(Unit)
                             else ApiResponseDto.Error()
@@ -421,11 +488,31 @@ fun Route.noteRoutes(
                             requestedUserId = session.userId,
                             userId = newUser.id
                         )
+                        if (result) {
+                            notesRoomController.sendEventForUser(
+                                userId = newUser.id,
+                                event = NotesListSocketEvent.UpdatedRole(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = noteId,
+                                    newRoleCode = UserRoleCode.ROLE_OWNER
+                                )
+                            )
+                            notesRoomController.sendEventForUser(
+                                userId = editorUser.id,
+                                event = NotesListSocketEvent.UpdatedRole(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = noteId,
+                                    newRoleCode = UserRoleCode.ROLE_EDITOR
+                                )
+                            )
+                        }
                         call.respond(
                             if (result) ApiResponseDto.Success(Unit)
                             else ApiResponseDto.Error()
                         )
                     }
+
+                    //TODO: Add endpoint to update users roles
 
                 }
 
