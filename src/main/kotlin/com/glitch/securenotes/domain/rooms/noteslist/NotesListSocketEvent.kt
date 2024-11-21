@@ -1,8 +1,6 @@
 package com.glitch.securenotes.domain.rooms.noteslist
 
-import com.glitch.securenotes.data.model.dto.notes.NoteCompactInfoDto
 import com.glitch.securenotes.data.model.dto.notes.NoteCompactSocketInfoDto
-import com.glitch.securenotes.data.model.entity.NoteModel
 import kotlinx.serialization.Serializable
 
 //@Serializable

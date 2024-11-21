@@ -541,8 +541,7 @@ class NotesDataSourceImpl(
         val filter = Filters.and(
             Filters.eq("_id", noteId),
             Filters.eq(NoteModel::isSharing.name, true),
-            Filters.eq(NoteModel::creatorId.name, requestedUserId),
-            Filters.`in`(NoteModel::sharedEditorUserIds.name, userId)
+            Filters.eq(NoteModel::creatorId.name, requestedUserId)
         )
         val update = Updates.combine(
             Updates.pull(NoteModel::sharedEditorUserIds.name, userId),
@@ -560,8 +559,7 @@ class NotesDataSourceImpl(
         val filter = Filters.and(
             Filters.eq("_id", noteId),
             Filters.eq(NoteModel::isSharing.name, true),
-            Filters.eq(NoteModel::creatorId.name, requestedUserId),
-            Filters.`in`(NoteModel::sharedEditorUserIds.name, userIds)
+            Filters.eq(NoteModel::creatorId.name, requestedUserId)
         )
         val update = Updates.combine(
             Updates.pullAll(NoteModel::sharedEditorUserIds.name, userIds.toList()),
@@ -579,8 +577,7 @@ class NotesDataSourceImpl(
         val filter = Filters.and(
             Filters.eq("_id", noteId),
             Filters.eq(NoteModel::isSharing.name, true),
-            Filters.eq(NoteModel::creatorId.name, requestedUserId),
-            Filters.`in`(NoteModel::sharedReaderUserIds.name, userId)
+            Filters.eq(NoteModel::creatorId.name, requestedUserId)
         )
         val update = Updates.combine(
             Updates.pull(NoteModel::sharedReaderUserIds.name, userId),
@@ -598,8 +595,7 @@ class NotesDataSourceImpl(
         val filter = Filters.and(
             Filters.eq("_id", noteId),
             Filters.eq(NoteModel::isSharing.name, true),
-            Filters.eq(NoteModel::creatorId.name, requestedUserId),
-            Filters.`in`(NoteModel::sharedReaderUserIds.name, userIds)
+            Filters.eq(NoteModel::creatorId.name, requestedUserId)
         )
         val update = Updates.combine(
             Updates.pullAll(NoteModel::sharedReaderUserIds.name, userIds.toList()),

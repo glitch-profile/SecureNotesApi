@@ -6,7 +6,6 @@ import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.users.IncorrectSecuredNotesPasswordException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
 import com.glitch.securenotes.data.model.dto.notes.NewNoteIncomingInfoDto
-import com.glitch.securenotes.data.model.dto.notes.NoteCompactInfoDto
 import com.glitch.securenotes.data.model.dto.notes.NoteSharingStatusDto
 import com.glitch.securenotes.data.model.dto.notes.UserListsIncomingDto
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
@@ -174,9 +173,9 @@ fun Route.noteRoutes(
                         call.respond(HttpStatusCode.BadRequest)
                         return@get
                     }
-                    val userSecuredPassword = call.request.headers[HeaderNames.securedNotesPassword]
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
+                        val userSecuredPassword = call.request.headers[HeaderNames.securedNotesPassword]
                         if (userSecuredPassword != user.protectedNotePassword) {
                             call.respond(
                                 ApiResponseDto.Error<Unit>(
@@ -229,10 +228,10 @@ fun Route.noteRoutes(
                         call.respond(HttpStatusCode.BadRequest)
                         return@post
                     }
-                    val securedNotePassword = call.request.headers[HeaderNames.securedNotesPassword]
                     val newTitle = call.receiveText()
                     val user = usersDataSource.getUserById(userId = session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
+                        val securedNotePassword = call.request.headers[HeaderNames.securedNotesPassword]
                         if (user.protectedNotePassword != securedNotePassword)
                             throw IncorrectSecuredNotesPasswordException()
                     }
@@ -253,10 +252,10 @@ fun Route.noteRoutes(
                         call.respond(HttpStatusCode.BadRequest)
                         return@post
                     }
-                    val securedNotePassword = call.request.headers[HeaderNames.securedNotesPassword]
                     val newDescription = call.receiveText()
                     val user = usersDataSource.getUserById(userId = session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
+                        val securedNotePassword = call.request.headers[HeaderNames.securedNotesPassword]
                         if (user.protectedNotePassword != securedNotePassword)
                             throw IncorrectSecuredNotesPasswordException()
                     }
@@ -303,9 +302,9 @@ fun Route.noteRoutes(
                             return@post
                         }
                         val isShareNote = newNoteSharingPolicy == "shared"
-                        val securedNotePassword = call.request.headers[HeaderNames.securedNotesPassword]
                         val user = usersDataSource.getUserById(userId = session.userId)
                         if (user.protectedNoteIds.contains(noteId)) {
+                            val securedNotePassword = call.request.headers[HeaderNames.securedNotesPassword]
                             if (user.protectedNotePassword != securedNotePassword)
                                 throw IncorrectSecuredNotesPasswordException()
                         }
@@ -339,9 +338,9 @@ fun Route.noteRoutes(
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
                         }
-                        val notePassword = call.request.headers[HeaderNames.securedNotesPassword]
                         val user = usersDataSource.getUserById(session.userId)
                         if (user.protectedNoteIds.contains(noteId)) {
+                            val notePassword = call.request.headers[HeaderNames.securedNotesPassword]
                             if (user.protectedNotePassword != notePassword)
                                 throw IncorrectSecuredNotesPasswordException()
                         }
@@ -471,9 +470,9 @@ fun Route.noteRoutes(
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
                         }
-                        val protectedNotesPassword = call.request.headers[HeaderNames.securedNotesPassword]
                         val editorUser = usersDataSource.getUserById(session.userId)
                         if (editorUser.protectedNoteIds.contains(noteId)) {
+                            val protectedNotesPassword = call.request.headers[HeaderNames.securedNotesPassword]
                             if (protectedNotesPassword != editorUser.protectedNotePassword) {
                                 throw IncorrectSecuredNotesPasswordException()
                             }
@@ -512,7 +511,83 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    //TODO: Add endpoint to update users roles
+                    post("/move-to-editors") {
+                        val session = call.sessions.get<AuthSession>()!!
+                        val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val editorUser = usersDataSource.getUserById(session.userId)
+                        if (editorUser.protectedNoteIds.contains(noteId)) {
+                            val protectedNotesPasswords = call.request.headers[HeaderNames.securedNotesPassword]
+                            if (protectedNotesPasswords != editorUser.protectedNotePassword)
+                                throw IncorrectSecuredNotesPasswordException()
+                        }
+                        val userList = call.receiveNullable<UserListsIncomingDto>()?.readers ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val result = notesDataSource.moveUsersToEditors(
+                            userIds = userList,
+                            noteId = noteId,
+                            requestedUserId = session.userId
+                        )
+                        if (result) {
+                            notesRoomController.sendEventForUsers(
+                                userIds = userList.toList(),
+                                event = NotesListSocketEvent.UpdatedRole(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = noteId,
+                                    newRoleCode = UserRoleCode.ROLE_EDITOR
+                                )
+                            )
+                        }
+                        call.respond(
+                            if (result) ApiResponseDto.Success(Unit)
+                            else ApiResponseDto.Error()
+                        )
+
+                    }
+
+                    post("/move-to-readers") {
+                        val session = call.sessions.get<AuthSession>()!!
+                        val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val editorUser = usersDataSource.getUserById(session.userId)
+                        if (editorUser.protectedNoteIds.contains(noteId)) {
+                            val protectedNotesPassword = call.request.headers[HeaderNames.securedNotesPassword]
+                            if (protectedNotesPassword != editorUser.protectedNotePassword) {
+                                throw IncorrectSecuredNotesPasswordException()
+                            }
+                        }
+                        val usersList = call.receiveNullable<UserListsIncomingDto>()?.editors ?: kotlin.run {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+                        val note = notesDataSource.getNoteById(noteId, session.userId)
+                        val usersToMove = note.sharedEditorUserIds.intersect(usersList)
+                        val result = notesDataSource.moveUsersToReaders(
+                            noteId = note.id,
+                            requestedUserId = session.userId,
+                            userIds = usersToMove
+                        )
+                        if (result) {
+                            notesRoomController.sendEventForUsers(
+                                userIds = usersToMove.toList(),
+                                event = NotesListSocketEvent.UpdatedRole(
+                                    initiatedUserId = session.userId,
+                                    affectedNoteId = note.id,
+                                    newRoleCode = UserRoleCode.ROLE_READER
+                                )
+                            )
+                        }
+                        call.respond(
+                            if (result) ApiResponseDto.Success(Unit)
+                            else ApiResponseDto.Error()
+                        )
+                    }
 
                 }
 
@@ -548,12 +623,12 @@ fun Route.noteRoutes(
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
                         }
-                        val notePassword = call.request.headers[HeaderNames.securedNotesPassword]
                         val user = usersDataSource.getUserById(session.userId)
                         if (!user.protectedNoteIds.contains(noteId)) {
                             call.respond(ApiResponseDto.Success(Unit))
                             return@post
                         }
+                        val notePassword = call.request.headers[HeaderNames.securedNotesPassword]
                         if (notePassword != user.protectedNotePassword)
                             throw IncorrectSecuredNotesPasswordException()
                         val result = usersDataSource.removeNoteFromProtected(
