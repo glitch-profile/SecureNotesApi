@@ -292,6 +292,41 @@ fun Route.noteRoutes(
                     )
                 }
 
+                // TODO: replace with noteRoomController later
+                post("/update-text") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    val noteId = call.pathParameters[HeaderNames.noteId] ?: kotlin.run {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@post
+                    }
+                    val newText = call.receiveText()
+                    val user = usersDataSource.getUserById(session.userId)
+                    if (user.protectedNoteIds.contains(noteId)) {
+                        val protectedNotesPassword = call.request.headers[HeaderNames.securedNotesPassword]
+                        if (protectedNotesPassword != user.protectedNotePassword) throw IncorrectSecuredNotesPasswordException()
+                    }
+                    val result = notesDataSource.updateNoteText(
+                        noteId = noteId,
+                        editorUserId = session.userId,
+                        newText = newText
+                    )
+                    if (result) {
+                        val note = notesDataSource.getNoteById(noteId, session.userId)
+                        val noteUsers = note.getAllUsers()
+                        notesRoomController.sendEventForUsers(
+                            userIds = noteUsers,
+                            event = NotesListSocketEvent.UpdatedNote(
+                                initiatedUserId = session.userId,
+                                updateNoteInfoModel = note.toCompactRoomSocketInfo()
+                            )
+                        )
+                    }
+                    call.respond(
+                        if (result) ApiResponseDto.Success(Unit)
+                        else ApiResponseDto.Error()
+                    )
+                }
+
                 route("/sharing") {
 
                     get("/users") {
