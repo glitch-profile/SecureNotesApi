@@ -1,6 +1,7 @@
 package com.glitch.securenotes.domain.rooms.noteslist
 
-import com.glitch.securenotes.data.model.dto.notes.NoteCompactSocketInfoDto
+import com.glitch.securenotes.data.model.dto.notes.NoteCompactInfoDto
+import com.glitch.securenotes.data.model.dto.notes.NoteCompactUpdateInfoDto
 import kotlinx.serialization.Serializable
 
 //@Serializable
@@ -23,25 +24,28 @@ sealed class NotesListSocketEvent {
     abstract val eventCode: Short
     abstract val affectedNoteId: String
     abstract val newRoleCode: Short?
-    abstract val affectedNoteModel: NoteCompactSocketInfoDto?
+    abstract val newNoteInfoModel: NoteCompactInfoDto?
+    abstract val updateNoteInfoModel: NoteCompactUpdateInfoDto?
 
     @Serializable
     data class NewNote(
         override val initiatedUserId: String,
-        override val affectedNoteModel: NoteCompactSocketInfoDto
+        override val newNoteInfoModel: NoteCompactInfoDto
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_ADDED_NEW_NOTE
-        override val affectedNoteId = affectedNoteModel.id
+        override val affectedNoteId = newNoteInfoModel.id
+        override val updateNoteInfoModel: NoteCompactUpdateInfoDto? = null
         override val newRoleCode = null
     }
 
     @Serializable
     data class UpdatedNote(
         override val initiatedUserId: String,
-        override val affectedNoteModel: NoteCompactSocketInfoDto
+        override val updateNoteInfoModel: NoteCompactUpdateInfoDto
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_UPDATED_NOTE
-        override val affectedNoteId = affectedNoteModel.id
+        override val affectedNoteId = updateNoteInfoModel.id
+        override val newNoteInfoModel: NoteCompactInfoDto? = null
         override val newRoleCode = null
     }
 
@@ -52,7 +56,8 @@ sealed class NotesListSocketEvent {
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_DELETED_NOTE
         override val newRoleCode = null
-        override val affectedNoteModel = null
+        override val newNoteInfoModel: NoteCompactInfoDto? = null
+        override val updateNoteInfoModel: NoteCompactUpdateInfoDto? = null
     }
 
     @Serializable
@@ -62,7 +67,8 @@ sealed class NotesListSocketEvent {
         override val newRoleCode: Short
     ): NotesListSocketEvent() {
         override val eventCode = EVENT_UPDATED_ROLE
-        override val affectedNoteModel = null
+        override val newNoteInfoModel: NoteCompactInfoDto? = null
+        override val updateNoteInfoModel: NoteCompactUpdateInfoDto? = null
     }
 
 }

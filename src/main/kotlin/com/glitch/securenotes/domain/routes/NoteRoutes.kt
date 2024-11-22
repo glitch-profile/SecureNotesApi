@@ -114,7 +114,7 @@ fun Route.noteRoutes(
                     userId = session.userId,
                     event = NotesListSocketEvent.NewNote(
                         initiatedUserId = session.userId,
-                        affectedNoteModel = addedNote.toCompactRoomSocketInfo()
+                        newNoteInfoModel = addedNote.toCompactInfo(session.userId)
                     )
                 )
                 call.respond(
@@ -155,7 +155,7 @@ fun Route.noteRoutes(
                     userId = session.userId,
                     event = NotesListSocketEvent.NewNote(
                         initiatedUserId = session.userId,
-                        affectedNoteModel = addedNote.toCompactRoomSocketInfo()
+                        newNoteInfoModel = addedNote.toCompactInfo(session.userId)
                     )
                 )
                 call.respond(
@@ -240,6 +240,17 @@ fun Route.noteRoutes(
                         editorUserId = session.userId,
                         newTitle = newTitle
                     )
+                    if (result) {
+                        val note = notesDataSource.getNoteById(noteId, session.userId)
+                        val noteUsers = note.getAllUsers()
+                        notesRoomController.sendEventForUsers(
+                            userIds = noteUsers,
+                            event = NotesListSocketEvent.UpdatedNote(
+                                initiatedUserId = session.userId,
+                                updateNoteInfoModel = note.toCompactRoomSocketInfo()
+                            )
+                        )
+                    }
                     call.respond(
                         if (result) ApiResponseDto.Success(Unit)
                         else ApiResponseDto.Error()
@@ -264,6 +275,17 @@ fun Route.noteRoutes(
                         editorUserId = session.userId,
                         newDescription = newDescription
                     )
+                    if (result) {
+                        val note = notesDataSource.getNoteById(noteId, session.userId)
+                        val noteUsers = note.getAllUsers()
+                        notesRoomController.sendEventForUsers(
+                            userIds = noteUsers,
+                            event = NotesListSocketEvent.UpdatedNote(
+                                initiatedUserId = session.userId,
+                                updateNoteInfoModel = note.toCompactRoomSocketInfo()
+                            )
+                        )
+                    }
                     call.respond(
                         if (result) ApiResponseDto.Success(Unit)
                         else ApiResponseDto.Error()
@@ -364,7 +386,7 @@ fun Route.noteRoutes(
                                     userIds = foundedEditors.toList(),
                                     event = NotesListSocketEvent.NewNote(
                                         initiatedUserId = session.userId,
-                                        affectedNoteModel = note.toCompactRoomSocketInfo()
+                                        newNoteInfoModel = note.toCompactInfo(UserRoleCode.ROLE_EDITOR)
                                     )
                                 )
                             }
@@ -383,7 +405,7 @@ fun Route.noteRoutes(
                                     userIds = foundedReaders.toList(),
                                     event = NotesListSocketEvent.NewNote(
                                         initiatedUserId = session.userId,
-                                        affectedNoteModel = note.toCompactRoomSocketInfo()
+                                        newNoteInfoModel = note.toCompactInfo(UserRoleCode.ROLE_READER)
                                     )
                                 )
                             }

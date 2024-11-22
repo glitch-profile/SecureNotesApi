@@ -10,6 +10,6 @@ data class NoteCompactInfoDto(
     val text: String,
     val isSharing: Boolean,
     val userRole: Short,
-    val createdTimestamp: Long,
+    val creationTimestamp: Long,
     val lastEditTimestamp: Long?
 )

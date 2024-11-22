@@ -2,7 +2,7 @@ package com.glitch.securenotes.data.model.entity
 
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForReadException
 import com.glitch.securenotes.data.model.dto.notes.NoteCompactInfoDto
-import com.glitch.securenotes.data.model.dto.notes.NoteCompactSocketInfoDto
+import com.glitch.securenotes.data.model.dto.notes.NoteCompactUpdateInfoDto
 import com.glitch.securenotes.domain.utils.UserRoleCode
 import kotlinx.serialization.Serializable
 import org.bson.codecs.pojo.annotations.BsonId
@@ -55,13 +55,26 @@ data class NoteModel(
             text = text,
             isSharing = isSharing,
             userRole = userRole,
-            createdTimestamp = creationTimestamp,
+            creationTimestamp = creationTimestamp,
             lastEditTimestamp = lastEditTimestamp
         )
     }
 
-    fun toCompactRoomSocketInfo(): NoteCompactSocketInfoDto {
-        return NoteCompactSocketInfoDto(
+    fun toCompactInfo(userRoleCode: Short): NoteCompactInfoDto {
+        return NoteCompactInfoDto(
+            id = id,
+            title = title,
+            description = description,
+            text = text,
+            isSharing = isSharing,
+            userRole = userRoleCode,
+            creationTimestamp = creationTimestamp,
+            lastEditTimestamp = lastEditTimestamp
+        )
+    }
+
+    fun toCompactRoomSocketInfo(): NoteCompactUpdateInfoDto {
+        return NoteCompactUpdateInfoDto(
             id = id,
             title = title,
             description = description,
@@ -70,8 +83,8 @@ data class NoteModel(
         )
     }
 
-    fun toCompactRoomSocketInfo(lastEditTimestamp: Long?): NoteCompactSocketInfoDto {
-        return NoteCompactSocketInfoDto(
+    fun toCompactRoomSocketInfo(lastEditTimestamp: Long?): NoteCompactUpdateInfoDto {
+        return NoteCompactUpdateInfoDto(
             id = id,
             title = title,
             description = description,
