@@ -7,6 +7,7 @@ import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
+import com.glitch.securenotes.domain.rooms.noteslist.UserNotesRoomController
 import com.glitch.securenotes.domain.routes.authRoutes
 import com.glitch.securenotes.domain.routes.noteRoutes
 import com.glitch.securenotes.domain.routes.userRoutes
@@ -35,6 +36,7 @@ fun Application.configureRouting() {
     val userCollectionsDataSource by inject<UserCollectionsDataSource>()
     val notesDataSource by inject<NotesDataSource>()
     val noteResourcesDataSource by inject<NoteResourcesDataSource>()
+    val notesRoomController by inject<UserNotesRoomController>()
 
     routing {
 
@@ -56,7 +58,8 @@ fun Application.configureRouting() {
         noteRoutes(
             usersDataSource = usersDataSource,
             notesDataSource = notesDataSource,
-            noteResourcesDataSource = noteResourcesDataSource
+            noteResourcesDataSource = noteResourcesDataSource,
+            notesRoomController = notesRoomController
         )
         utilRoutes()
 
