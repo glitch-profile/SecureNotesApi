@@ -8,10 +8,7 @@ import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.domain.rooms.noteslist.UserNotesRoomController
-import com.glitch.securenotes.domain.routes.authRoutes
-import com.glitch.securenotes.domain.routes.noteRoutes
-import com.glitch.securenotes.domain.routes.userRoutes
-import com.glitch.securenotes.domain.routes.utilRoutes
+import com.glitch.securenotes.domain.routes.*
 import com.glitch.securenotes.domain.utils.codeauth.CodeAuthenticator
 import com.glitch.securenotes.domain.utils.filemanager.FileManager
 import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessor
@@ -60,6 +57,11 @@ fun Application.configureRouting() {
             notesDataSource = notesDataSource,
             noteResourcesDataSource = noteResourcesDataSource,
             notesRoomController = notesRoomController
+        )
+        resourceRoutes(
+            usersDataSource = usersDataSource,
+            notesDataSource = notesDataSource,
+            noteResourcesDataSource = noteResourcesDataSource
         )
         utilRoutes()
 
