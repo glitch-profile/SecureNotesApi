@@ -31,8 +31,8 @@ import kotlin.math.min
 fun Route.noteRoutes(
     usersDataSource: UsersDataSource,
     notesDataSource: NotesDataSource,
-    notesRoomController: UserNotesRoomController,
-    noteResourcesDataSource: NoteResourcesDataSource
+    noteResourcesDataSource: NoteResourcesDataSource,
+    notesRoomController: UserNotesRoomController
 ) {
 
     route("/api/V1/notes") {
