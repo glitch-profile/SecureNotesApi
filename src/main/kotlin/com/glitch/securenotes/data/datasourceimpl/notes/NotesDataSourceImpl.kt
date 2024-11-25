@@ -758,7 +758,8 @@ class NotesDataSourceImpl(
         return note.copy(
             title = note.title?.run { AESEncryptor.decrypt(this, secretKey = decryptionKey) },
             description = note.description?.run { AESEncryptor.decrypt(this, secretKey = decryptionKey) },
-            text = AESEncryptor.decrypt(note.text, secretKey = decryptionKey)
+            text = AESEncryptor.decrypt(note.text, secretKey = decryptionKey),
+            encryptionKey = decryptionKey
         )
     }
 }

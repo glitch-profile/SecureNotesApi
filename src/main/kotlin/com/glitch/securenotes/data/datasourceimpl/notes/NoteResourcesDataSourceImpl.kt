@@ -77,11 +77,10 @@ class NoteResourcesDataSourceImpl(
         } else {
             val noteDecryptionKey = notes.getNoteById(noteId, requestedUserId)
                 .encryptionKey
-            val decryptedKey = AESEncryptor.decrypt(noteDecryptionKey)
             val filters = Filters.eq(ResourceModel::noteId.name, noteId)
             val foundedResources = resources.find(filters)
                 .sort(Sorts.descending(ResourceModel::createdTimestamp.name))
-                .map { decryptResource(it, decryptedKey) }
+                .map { decryptResource(it, noteDecryptionKey) }
                 .toList()
             resourceCache.saveResourcesToCache(noteId, foundedResources)
             return foundedResources
@@ -99,7 +98,6 @@ class NoteResourcesDataSourceImpl(
     ): ResourceModel {
         checkUserEditPermission(noteId, editorUserId)
         val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
-        val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
         val resource = ResourceModel(
             noteId = noteId,
             title = title,
@@ -107,7 +105,7 @@ class NoteResourcesDataSourceImpl(
             file = fileModel,
             createdUserId = editorUserId
         )
-        val encryptedResource = encryptResource(resource, encryptionKey)
+        val encryptedResource = encryptResource(resource, noteEncryptionKey)
         resources.insertOne(encryptedResource)
         resourceCache.addResourceToNote(noteId, resource)
         return resource
@@ -123,8 +121,7 @@ class NoteResourcesDataSourceImpl(
     ): Boolean {
         checkUserEditPermission(noteId, editorUserId)
         val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
-        val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
-        val newTitleEncrypted = AESEncryptor.encrypt(newTitle, encryptionKey)
+        val newTitleEncrypted = AESEncryptor.encrypt(newTitle, noteEncryptionKey)
         val filter = Filters.and(
             Filters.eq("_id", resourceId),
             Filters.eq(ResourceModel::noteId.name, noteId)
@@ -137,7 +134,7 @@ class NoteResourcesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = resources.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            resourceCache.updateResourceForNote(noteId, decryptResource(result, encryptionKey))
+            resourceCache.updateResourceForNote(noteId, decryptResource(result, noteEncryptionKey))
         }
         return result != null
     }
@@ -154,11 +151,10 @@ class NoteResourcesDataSourceImpl(
             Filters.eq(ResourceModel::noteId.name, noteId)
         )
         val noteEncryptionKey = notes.getNoteById(noteId, editorUserId).encryptionKey
-        val encryptionKey = AESEncryptor.decrypt(noteEncryptionKey)
         val updateDescription = if (newDescription.isNullOrBlank()) {
             Updates.set(ResourceModel::description.name, null)
         } else {
-            val newDescriptionEncrypted = AESEncryptor.encrypt(newDescription, encryptionKey)
+            val newDescriptionEncrypted = AESEncryptor.encrypt(newDescription, noteEncryptionKey)
             Updates.set(ResourceModel::description.name, newDescriptionEncrypted)
         }
         val currentTimestamp = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond()
@@ -169,7 +165,7 @@ class NoteResourcesDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = resources.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            resourceCache.updateResourceForNote(noteId, decryptResource(result, encryptionKey))
+            resourceCache.updateResourceForNote(noteId, decryptResource(result, noteEncryptionKey))
         }
         return result != null
     }
