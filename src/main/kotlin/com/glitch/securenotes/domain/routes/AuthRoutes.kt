@@ -49,8 +49,8 @@ fun Route.authRoutes(
         webSocket(
             path = "/otp-socket"
         ) {
-            val platform = call.request.queryParameters[HeaderNames.platformName]
-            val appAgent = call.request.queryParameters[HeaderNames.agentName]
+            val platform = call.request.queryParameters[HeaderNames.PLATFORM_NAME]
+            val appAgent = call.request.queryParameters[HeaderNames.AGENT_NAME]
             if (platform == null || appAgent == null) {
                 call.respond(HttpStatusCode.BadRequest)
                 return@webSocket
@@ -89,10 +89,10 @@ fun Route.authRoutes(
         }
 
         post("/guest") {
-            val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
+            val platform = call.request.queryParameters[HeaderNames.PLATFORM_NAME] ?: kotlin.run {
                 call.request.header("sec-ch-ua-platform")
             }
-            val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
+            val agent = call.request.queryParameters[HeaderNames.AGENT_NAME] ?: kotlin.run {
                 call.request.header("sec-ch-ua")
             }
             if (platform == null || agent == null) {
@@ -126,10 +126,10 @@ fun Route.authRoutes(
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-            val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
+            val platform = call.request.queryParameters[HeaderNames.PLATFORM_NAME] ?: kotlin.run {
                 call.request.header("sec-ch-ua-platform")
             }
-            val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
+            val agent = call.request.queryParameters[HeaderNames.AGENT_NAME] ?: kotlin.run {
                 call.request.header("sec-ch-ua")
             }
             if (platform == null || agent == null) {
@@ -173,10 +173,10 @@ fun Route.authRoutes(
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-            val platform = call.request.queryParameters[HeaderNames.platformName] ?: kotlin.run {
+            val platform = call.request.queryParameters[HeaderNames.PLATFORM_NAME] ?: kotlin.run {
                 call.request.header("sec-ch-ua-platform")
             }
-            val agent = call.request.queryParameters[HeaderNames.agentName] ?: kotlin.run {
+            val agent = call.request.queryParameters[HeaderNames.AGENT_NAME] ?: kotlin.run {
                 call.request.header("sec-ch-ua")
             }
             if (platform == null || agent == null) {

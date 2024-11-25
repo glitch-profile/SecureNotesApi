@@ -139,9 +139,9 @@ fun Route.userRoutes(
             }
 
             // TODO: Rework returned user model
-            get("/{${HeaderNames.userId}}") {
+            get("/{${HeaderNames.USER_ID}}") {
                 val session = call.sessions.get<AuthSession>()!!
-                val requestedUserId = call.request.pathVariables[HeaderNames.userId] ?: kotlin.run {
+                val requestedUserId = call.request.pathVariables[HeaderNames.USER_ID] ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
@@ -304,9 +304,9 @@ fun Route.userRoutes(
                     )
                 }
 
-                post("/{${HeaderNames.sessionId}}/destroy") {
+                post("/{${HeaderNames.SESSION_ID}}/destroy") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val sessionId = call.pathParameters[HeaderNames.sessionId] ?: kotlin.run {
+                    val sessionId = call.pathParameters[HeaderNames.SESSION_ID] ?: kotlin.run {
                         call.respond(HttpStatusCode.BadRequest)
                         return@post
                     }
@@ -335,7 +335,7 @@ fun Route.userRoutes(
 
                 post("/destroy") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val isIncludeClientSession = call.request.queryParameters[HeaderNames.includeSelfSession].toBoolean()
+                    val isIncludeClientSession = call.request.queryParameters[HeaderNames.IS_INCLUDE_SELF_SESSION].toBoolean()
                     val userInfo = usersDataSource.getUserById(session.userId)
                     val sessionIdsToDelete = if (!isIncludeClientSession) {
                         userInfo.activeSessions.toMutableList().apply {

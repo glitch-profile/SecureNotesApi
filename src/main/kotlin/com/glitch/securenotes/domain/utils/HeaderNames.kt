@@ -3,19 +3,22 @@ package com.glitch.securenotes.domain.utils
 object HeaderNames {
 
     // auth-headers
-    const val sessionId = "session_id"
-    const val platformName = "platform"
-    const val agentName = "agent"
+    const val SESSION_ID = "session_id"
+    const val PLATFORM_NAME = "platform"
+    const val AGENT_NAME = "agent"
 
     // users
-    const val userId = "user_id"
-    const val includeSelfSession = "include_self"
+    const val USER_ID = "user_id"
+    const val IS_INCLUDE_SELF_SESSION = "include_self"
 
     //notes
-    const val noteId = "note_id"
-    const val pagingLimit = "limit"
-    const val pagingPage = "page"
-    const val securedNotesPassword = "notes_password"
-    const val newNoteSharingMode = "sharing-mode"
+    const val NOTE_ID = "note_id"
+    const val PAGING_LIMIT = "limit"
+    const val PAGING_PAGE = "page"
+    const val SECURE_NOTES_PASSWORD = "notes_password"
+    const val NOTE_SHARING_MODE = "sharing-mode"
+
+    //resources
+    const val RESOURCE_ID = "res_id"
 
 }
