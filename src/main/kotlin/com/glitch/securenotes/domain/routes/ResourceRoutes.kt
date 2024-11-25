@@ -24,17 +24,47 @@ fun Route.resourceRoutes(
     fileManager: FileManager
 ) {
 
-    route("api/V1/resources") {
-
-        authenticate(AuthenticationLevel.USER) {
-
+    get("/api/V1/resource-file/{${HeaderNames.NOTE_ID}}/{${HeaderNames.FILE_PATH}}") {
+        val session = call.sessions.get<AuthSession>()!!
+        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
+            call.respond(HttpStatusCode.BadRequest)
+            return@get
         }
+        val filePath = call.queryParameters[HeaderNames.FILE_PATH] ?: kotlin.run {
+            call.respond(HttpStatusCode.BadRequest)
+            return@get
+        }
+        val user = usersDataSource.getUserById(session.userId)
+        if (user.protectedNoteIds.contains(noteId)) {
+            val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+            if (user.protectedNotePassword != protectedNotePassword)
+                throw IncorrectSecuredNotesPasswordException()
+        }
+        val note = notesDataSource.getNoteById(noteId, user.id)
+        val file = fileManager.getFile(fileManager.toLocalPath(filePath))
+        val fileBytes = file.inputStream().use { it.readBytes() }
+        val decryptedFileBytes = AESEncryptor.decrypt(fileBytes, note.encryptionKey)
+        call.response.header(
+            HttpHeaders.ContentType,
+            ContentType.defaultForFile(file).toString()
+        )
+        call.response.header(
+            HttpHeaders.ContentDisposition,
+            ContentDisposition.Inline.withParameter(
+                ContentDisposition.Parameters.FileName, filePath
+            ).toString()
+        )
+        call.respondBytes(decryptedFileBytes)
 
     }
 
-    route("api/V1/notes/{${HeaderNames.NOTE_ID}}/resources") {
+    route("/api/V1/notes/{${HeaderNames.NOTE_ID}}/resources") {
 
         authenticate(AuthenticationLevel.USER) {
+
+            post("/add") {
+                // TODO
+            }
 
             route("/{${HeaderNames.RESOURCE_ID}}") {
 
@@ -64,7 +94,7 @@ fun Route.resourceRoutes(
                     )
                 }
 
-                get("/file") {
+                get("/download") {
                     val session = call.sessions.get<AuthSession>()!!
                     val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
                         call.respond(HttpStatusCode.BadRequest)
@@ -98,53 +128,8 @@ fun Route.resourceRoutes(
                     )
                     call.response.header(
                         HttpHeaders.ContentDisposition,
-                        ContentDisposition.Inline.withParameter(
+                        ContentDisposition.File.withParameter(
                             ContentDisposition.Parameters.FileName, resource.file.name
-                        ).toString()
-                    )
-                    call.respondBytes(decryptedFileBytes)
-                }
-
-                get("/preview") {
-                    val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
-                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
-                    val user = usersDataSource.getUserById(session.userId)
-                    if (user.protectedNoteIds.contains(noteId)) {
-                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
-                        if (user.protectedNotePassword != protectedNotePassword)
-                            throw IncorrectSecuredNotesPasswordException()
-                    }
-                    val note = notesDataSource.getNoteById(
-                        noteId = noteId,
-                        requestedUserId = user.id
-                    )
-                    val resource = noteResourcesDataSource.getResourceById(
-                        noteId = noteId,
-                        resourceId = resourceId,
-                        requestedUserId = user.id
-                    )
-                    if (resource.file.previewUrlPath == null) {
-                        call.respond(HttpStatusCode.NotFound)
-                        return@get
-                    }
-                    val file = fileManager.getFile(fileManager.toLocalPath(resource.file.previewUrlPath))
-                    val fileBytes = file.inputStream().use { it.readBytes() }
-                    val decryptedFileBytes = AESEncryptor.decrypt(fileBytes, note.encryptionKey)
-                    call.response.header(
-                        HttpHeaders.ContentType,
-                        ContentType.defaultForFile(file).toString()
-                    )
-                    call.response.header(
-                        HttpHeaders.ContentDisposition,
-                        ContentDisposition.Inline.withParameter(
-                            ContentDisposition.Parameters.FileName, "${resource.file.name}-preview"
                         ).toString()
                     )
                     call.respondBytes(decryptedFileBytes)
@@ -240,4 +225,5 @@ fun Route.resourceRoutes(
         }
 
     }
+
 }

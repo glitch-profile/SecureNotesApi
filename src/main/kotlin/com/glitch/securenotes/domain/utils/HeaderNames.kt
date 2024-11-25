@@ -20,5 +20,6 @@ object HeaderNames {
 
     //resources
     const val RESOURCE_ID = "res_id"
+    const val FILE_PATH = "file_path"
 
 }
