@@ -32,7 +32,7 @@ import kotlinx.io.readByteArray
 import java.io.File
 
 // max new avatar image size
-private const val MAX_FILE_SIZE = 5_242_880 // 5 MB in bytes
+private const val MAX_FILE_SIZE = 5_242_880L // 5 MB in bytes
 
 fun Route.userRoutes(
     usersDataSource: UsersDataSource,
@@ -50,7 +50,7 @@ fun Route.userRoutes(
 
             put("/update-avatar") {
                 val session = call.sessions.get<AuthSession>()!!
-                val contentLength = call.request.header(HttpHeaders.ContentLength)?.toInt() ?: kotlin.run {
+                val contentLength = call.request.header(HttpHeaders.ContentLength)?.toLong() ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@put
                 }
@@ -126,7 +126,7 @@ fun Route.userRoutes(
                     kotlin.runCatching { fileManager.deleteFile(defaultAvatarPath) }
                     kotlin.runCatching { fileManager.deleteFile(avatarThumbnailPath) }
                 }
-                if (newAvatarImageInfo != null) {
+                val result: FileModel? = if (newAvatarImageInfo != null) {
                     usersDataSource.updateUserProfileAvatar(
                         userId = user.id,
                         avatarUrlPath = newAvatarImageInfo!!.urlPath,
@@ -134,8 +134,9 @@ fun Route.userRoutes(
                     )
                 } else {
                     usersDataSource.clearUserProfileAvatar(user.id)
+                    null
                 }
-                call.respond(ApiResponseDto.Success(Unit))
+                call.respond(ApiResponseDto.Success(result))
             }
 
             // TODO: Rework returned user model

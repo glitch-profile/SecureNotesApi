@@ -78,7 +78,7 @@ class UsersDataSourceImpl(
         userId: String,
         avatarUrlPath: String,
         avatarThumbnailUrlPath: String
-    ): Boolean {
+    ): FileModel {
         val filter = Filters.eq("_id", userId)
         val imageInfo = FileModel(
             name = "avatar.jpg",
@@ -90,7 +90,7 @@ class UsersDataSourceImpl(
         val updatedUser = users.findOneAndUpdate(filter, update, updateOptions)
         if (updatedUser != null) {
             usersCache.updateSavedUser(decryptUserInfo(updatedUser))
-            return true
+            return imageInfo
         } else throw UserNotFoundException()
     }
 

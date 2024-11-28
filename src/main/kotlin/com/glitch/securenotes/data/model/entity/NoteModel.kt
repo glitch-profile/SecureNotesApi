@@ -83,14 +83,4 @@ data class NoteModel(
         )
     }
 
-    fun toCompactRoomSocketInfo(lastEditTimestamp: Long?): NoteCompactUpdateInfoDto {
-        return NoteCompactUpdateInfoDto(
-            id = id,
-            title = title,
-            description = description,
-            text = text,
-            lastEditTimestamp = lastEditTimestamp
-        )
-    }
-
 }

@@ -30,7 +30,7 @@ interface UsersDataSource {
         userId: String,
         avatarUrlPath: String,
         avatarThumbnailUrlPath: String
-    ): Boolean
+    ): FileModel
 
     suspend fun clearUserProfileAvatar(userId: String): Boolean
 
