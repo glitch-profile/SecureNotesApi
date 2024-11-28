@@ -62,7 +62,8 @@ fun Application.configureRouting() {
             usersDataSource = usersDataSource,
             notesDataSource = notesDataSource,
             noteResourcesDataSource = noteResourcesDataSource,
-            fileManager = fileManager
+            fileManager = fileManager,
+            imageProcessor = imageProcessor
         )
         utilRoutes()
 

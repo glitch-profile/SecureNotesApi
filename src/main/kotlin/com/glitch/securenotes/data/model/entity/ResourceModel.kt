@@ -10,11 +10,11 @@ import java.time.ZoneId
 data class ResourceModel(
     @BsonId
     val id: String = ObjectId().toString(),
+    val createdUserId: String,
     val noteId: String,
     val file: FileModel,
     val title: String,
     val description: String? = null,
     val createdTimestamp: Long = OffsetDateTime.now(ZoneId.systemDefault()).toEpochSecond(),
-    val lastEditTimestamp: Long? = null,
-    val createdUserId: String
+    val lastEditTimestamp: Long? = null
 )

@@ -6,22 +6,33 @@ import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.users.IncorrectSecuredNotesPasswordException
 import com.glitch.securenotes.data.model.dto.ApiResponseDto
+import com.glitch.securenotes.data.model.entity.FileModel
+import com.glitch.securenotes.data.model.entity.ResourceModel
 import com.glitch.securenotes.domain.plugins.AuthenticationLevel
 import com.glitch.securenotes.domain.sessions.AuthSession
 import com.glitch.securenotes.domain.utils.HeaderNames
 import com.glitch.securenotes.domain.utils.filemanager.FileManager
+import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessor
+import com.glitch.securenotes.domain.utils.imageprocessor.ImageProcessorConstants
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
+import io.ktor.utils.io.*
+import kotlinx.io.readByteArray
+import java.io.File
+
+private const val MAX_CONTENT_LENGTH = 20_971_520L // 20 MB in bytes
 
 fun Route.resourceRoutes(
     usersDataSource: UsersDataSource,
     notesDataSource: NotesDataSource,
     noteResourcesDataSource: NoteResourcesDataSource,
-    fileManager: FileManager
+    fileManager: FileManager,
+    imageProcessor: ImageProcessor
 ) {
 
     get("/api/V1/resource-file/{${HeaderNames.NOTE_ID}}/{${HeaderNames.FILE_PATH}}") {
@@ -63,7 +74,107 @@ fun Route.resourceRoutes(
         authenticate(AuthenticationLevel.USER) {
 
             post("/add") {
-                // TODO
+                val session = call.sessions.get<AuthSession>()!!
+                val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
+                }
+                val contentLength = call.request.header(HttpHeaders.ContentLength)?.toLong() ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
+                }
+                if (contentLength > MAX_CONTENT_LENGTH) {
+                    call.respond(HttpStatusCode.PayloadTooLarge)
+                    return@post
+                }
+                val note = notesDataSource.getNoteById(noteId, session.userId)
+                val multipartData = call.receiveMultipart()
+                var resourceFile: FileModel? = null
+                var resourceTitle: String? = null
+                var resourceDescription: String? = null
+                multipartData.forEachPart { part ->
+                    when (part) {
+                        is PartData.FileItem -> {
+                            if (resourceFile == null) {
+                                val fileName = part.originalFileName!!.filter {
+                                    it.isLetterOrDigit() || it == '.' || it == '_'
+                                }
+                                if (imageProcessor.isImage(fileName)) {
+                                    // temp file
+                                    val tempFilePath = fileManager.uploadTempFile(
+                                        fileBytes = part.provider().readRemaining().readByteArray(),
+                                        fileExtension = File(fileName).extension
+                                    )
+                                    val originalFile = File(tempFilePath)
+                                    // thumbnail image
+                                    val thumbnailImage = File(fileManager.generateFilePath("jpg"))
+                                    imageProcessor.compressImageAndCrop(
+                                        inputFile = originalFile,
+                                        outputFile = thumbnailImage,
+                                        sideSize = ImageProcessorConstants.RECT_MAX_IMAGE_THUMBNAIL,
+                                        compressionQuality = ImageProcessorConstants.COMPRESSION_MODE_LOW_QUALITY
+                                    )
+                                    // thumbnail image encryption
+                                    val thumbnailImageBytes = thumbnailImage.inputStream().use { it.readBytes() }
+                                    thumbnailImage.outputStream().use { it.write(AESEncryptor.encrypt(thumbnailImageBytes)) }
+                                    // default processed image
+                                    val defaultImage = File(fileManager.generateFilePath("jpg"))
+                                    imageProcessor.compressImageAndCrop(
+                                        inputFile = originalFile,
+                                        outputFile = defaultImage,
+                                        sideSize = ImageProcessorConstants.RECT_MAX_IMAGE_DEFAULT,
+                                        compressionQuality = ImageProcessorConstants.COMPRESSION_MODE_HIGH_QUALITY
+                                    )
+                                    // default image encryption
+                                    val defaultImageBytes = defaultImage.inputStream().use { it.readBytes() }
+                                    defaultImage.outputStream().use { it.write(AESEncryptor.encrypt(defaultImageBytes)) }
+                                    resourceFile = FileModel(
+                                        name = fileName,
+                                        urlPath = fileManager.toUrlPath(defaultImage.path),
+                                        previewUrlPath = fileManager.toUrlPath(thumbnailImage.path)
+                                    )
+                                    originalFile.delete()
+                                } else {
+                                    // file with encryption
+                                    val encryptedFileBytes = AESEncryptor.encrypt(
+                                        normalByteArray = part.provider().readRemaining().readByteArray(),
+                                        secretKey = note.encryptionKey)
+                                    val fileExtension = File(fileName).extension
+                                    val uploadedFilePath = fileManager.uploadFile(encryptedFileBytes, fileExtension)
+                                    resourceFile = FileModel(
+                                        name = fileName,
+                                        urlPath = fileManager.toUrlPath(uploadedFilePath)
+                                    )
+                                }
+                            }
+                        }
+                        is PartData.FormItem -> {
+                            when (part.name!!) {
+                                "title" -> resourceTitle = part.value
+                                "description" -> resourceDescription = part.value
+                                else -> Unit
+                            }
+                        }
+                        else -> Unit
+                    }
+                    part.dispose()
+                }
+                if (resourceFile != null) {
+                    val result = noteResourcesDataSource.addResourceForNote(
+                        noteId = noteId,
+                        editorUserId = session.userId,
+                        title = resourceTitle ?: resourceFile!!.name,
+                        description = resourceDescription,
+                        fileModel = resourceFile!!
+                    )
+                    call.respond(
+                        ApiResponseDto.Success(data = result)
+                    )
+                    return@post
+                }
+                call.respond(
+                    ApiResponseDto.Error<ResourceModel>()
+                )
             }
 
             route("/{${HeaderNames.RESOURCE_ID}}") {
