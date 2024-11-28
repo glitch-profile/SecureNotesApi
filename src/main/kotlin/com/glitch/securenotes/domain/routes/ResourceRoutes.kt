@@ -53,8 +53,10 @@ fun Route.resourceRoutes(
         }
         val note = notesDataSource.getNoteById(noteId, user.id)
         val file = fileManager.getFile(fileManager.toLocalPath(filePath))
-        val fileBytes = file.inputStream().use { it.readBytes() }
-        val decryptedFileBytes = AESEncryptor.decrypt(fileBytes, note.encryptionKey)
+        val decryptedFileBytes = AESEncryptor.decrypt(
+            file.inputStream().use { it.readBytes() },
+            note.encryptionKey
+        )
         call.response.header(
             HttpHeaders.ContentType,
             ContentType.defaultForFile(file).toString()

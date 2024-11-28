@@ -46,6 +46,24 @@ fun Route.userRoutes(
 
     route("api/V1/users") {
 
+        get("/avatars/{${HeaderNames.AVATAR_PATH}}") {
+            val filePath = call.pathParameters[HeaderNames.AVATAR_PATH] ?: kotlin.run {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+            val file = fileManager.getFile(fileManager.toLocalPath(filePath))
+            val decryptedFileBytes = AESEncryptor.decrypt(file.inputStream().use { it.readBytes() })
+            call.response.header(
+                HttpHeaders.ContentType,
+                ContentType.defaultForFile(file).toString()
+            )
+            call.response.header(
+                HttpHeaders.ContentDisposition,
+                ContentDisposition.Inline.withParameter(ContentDisposition.Parameters.FileName, filePath).toString()
+            )
+            call.respond(decryptedFileBytes)
+        }
+
         authenticate(AuthenticationLevel.USER) {
 
             put("/update-avatar") {

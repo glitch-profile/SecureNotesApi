@@ -10,6 +10,7 @@ object HeaderNames {
     // users
     const val USER_ID = "user_id"
     const val IS_INCLUDE_SELF_SESSION = "include_self"
+    const val AVATAR_PATH = "avatar_path"
 
     //notes
     const val NOTE_ID = "note_id"
