@@ -169,10 +169,7 @@ fun Route.noteRoutes(
 
                 get {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.request.pathVariables[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
+                    val noteId = call.request.pathVariables[HeaderNames.NOTE_ID]!!
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
                         val userSecuredPassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -196,10 +193,7 @@ fun Route.noteRoutes(
 
                 delete {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@delete
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val note = notesDataSource.getNoteById(noteId = noteId, requestedUserId = session.userId)
                     if (note.creatorId == session.userId) {
                         noteResourcesDataSource.deleteResourceForNote(noteId = noteId, editorUserId = session.userId)
@@ -224,10 +218,7 @@ fun Route.noteRoutes(
 
                 post("/update-title") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val newTitle = call.receiveText()
                     val user = usersDataSource.getUserById(userId = session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
@@ -259,10 +250,7 @@ fun Route.noteRoutes(
 
                 post("/update-description") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val newDescription = call.receiveText()
                     val user = usersDataSource.getUserById(userId = session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
@@ -295,10 +283,7 @@ fun Route.noteRoutes(
                 // TODO: replace with noteRoomController later
                 post("/update-text") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val newText = call.receiveText()
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
@@ -331,10 +316,7 @@ fun Route.noteRoutes(
 
                     get("/users") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@get
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val note = notesDataSource.getNoteById(noteId, session.userId)
                         val sharingNoteStatus = NoteSharingStatusDto(
                             isSharing = note.isSharing,
@@ -349,10 +331,7 @@ fun Route.noteRoutes(
 
                     post("/set-mode") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val newNoteSharingPolicy = call.queryParameters[HeaderNames.NOTE_SHARING_MODE]
                         if (newNoteSharingPolicy != "shared" && newNoteSharingPolicy != "private") {
                             call.respond(HttpStatusCode.BadRequest)
@@ -387,10 +366,7 @@ fun Route.noteRoutes(
 
                     post("/add-users") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val userLists = call.receiveNullable<UserListsIncomingDto>() ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
@@ -452,10 +428,7 @@ fun Route.noteRoutes(
 
                     post("/remove-users") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val userLists = call.receiveNullable<UserListsIncomingDto>() ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
                             return@post
@@ -500,10 +473,7 @@ fun Route.noteRoutes(
 
                     post("/remove-all") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val result = notesDataSource.removeAllUsersFromSharedNote(noteId, session.userId)
                         if (result) {
                             val note = notesDataSource.getNoteById(noteId, session.userId)
@@ -523,10 +493,7 @@ fun Route.noteRoutes(
 
                     post("/update-owner") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val editorUser = usersDataSource.getUserById(session.userId)
                         if (editorUser.protectedNoteIds.contains(noteId)) {
                             val protectedNotesPassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -570,10 +537,7 @@ fun Route.noteRoutes(
 
                     post("/move-to-editors") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val editorUser = usersDataSource.getUserById(session.userId)
                         if (editorUser.protectedNoteIds.contains(noteId)) {
                             val protectedNotesPasswords = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -608,10 +572,7 @@ fun Route.noteRoutes(
 
                     post("/move-to-readers") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val editorUser = usersDataSource.getUserById(session.userId)
                         if (editorUser.protectedNoteIds.contains(noteId)) {
                             val protectedNotesPassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -652,10 +613,7 @@ fun Route.noteRoutes(
 
                     post("/add") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val user = usersDataSource.getUserById(session.userId)
                         if (user.protectedNoteIds.contains(noteId)) {
                             call.respond(ApiResponseDto.Success(Unit))
@@ -676,10 +634,7 @@ fun Route.noteRoutes(
 
                     post("/remove") {
                         val session = call.sessions.get<AuthSession>()!!
-                        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
+                        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val user = usersDataSource.getUserById(session.userId)
                         if (!user.protectedNoteIds.contains(noteId)) {
                             call.respond(ApiResponseDto.Success(Unit))

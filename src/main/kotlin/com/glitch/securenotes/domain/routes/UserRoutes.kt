@@ -47,10 +47,7 @@ fun Route.userRoutes(
     route("api/V1/users") {
 
         get("/avatars/{${HeaderNames.AVATAR_PATH}}") {
-            val filePath = call.pathParameters[HeaderNames.AVATAR_PATH] ?: kotlin.run {
-                call.respond(HttpStatusCode.BadRequest)
-                return@get
-            }
+            val filePath = call.pathParameters[HeaderNames.AVATAR_PATH]!!
             val file = fileManager.getFile(fileManager.toLocalPath(filePath))
             val decryptedFileBytes = AESEncryptor.decrypt(file.inputStream().use { it.readBytes() })
             call.response.header(
@@ -160,10 +157,7 @@ fun Route.userRoutes(
             // TODO: Rework returned user model
             get("/{${HeaderNames.USER_ID}}") {
                 val session = call.sessions.get<AuthSession>()!!
-                val requestedUserId = call.request.pathVariables[HeaderNames.USER_ID] ?: kotlin.run {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@get
-                }
+                val requestedUserId = call.request.pathVariables[HeaderNames.USER_ID]!!
                 val requestedUser = usersDataSource.getUserById(requestedUserId)
                 if (session.userId == requestedUserId) {
                     call.respond(
@@ -325,10 +319,7 @@ fun Route.userRoutes(
 
                 post("/{${HeaderNames.SESSION_ID}}/destroy") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val sessionId = call.pathParameters[HeaderNames.SESSION_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                    val sessionId = call.pathParameters[HeaderNames.SESSION_ID]!!
                     val sessionToClose = authSessionStorage.get(sessionId)
                     if (session.userId == sessionToClose.userId) {
                         usersDataSource.removeActiveSessionId(
