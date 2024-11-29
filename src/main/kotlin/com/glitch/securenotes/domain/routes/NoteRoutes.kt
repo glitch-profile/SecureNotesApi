@@ -329,13 +329,13 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/set-mode") {
+                    put("/set-mode") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val newNoteSharingPolicy = call.queryParameters[HeaderNames.NOTE_SHARING_MODE]
                         if (newNoteSharingPolicy != "shared" && newNoteSharingPolicy != "private") {
                             call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                            return@put
                         }
                         val isShareNote = newNoteSharingPolicy == "shared"
                         val user = usersDataSource.getUserById(userId = session.userId)
@@ -364,12 +364,12 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/add-users") {
+                    put("/add-users") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val userLists = call.receiveNullable<UserListsIncomingDto>() ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                            return@put
                         }
                         val user = usersDataSource.getUserById(session.userId)
                         if (user.protectedNoteIds.contains(noteId)) {
@@ -426,12 +426,12 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/remove-users") {
+                    put("/remove-users") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val userLists = call.receiveNullable<UserListsIncomingDto>() ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                            return@put
                         }
                         val editorIdsToRemove = userLists.editors.take(10).toSet()
                         val readerIdsToRemove = userLists.readers.asSequence()
@@ -471,7 +471,7 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/remove-all") {
+                    put("/remove-all") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val result = notesDataSource.removeAllUsersFromSharedNote(noteId, session.userId)
@@ -491,7 +491,7 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/update-owner") {
+                    put("/update-owner") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val editorUser = usersDataSource.getUserById(session.userId)
@@ -503,7 +503,7 @@ fun Route.noteRoutes(
                         }
                         val newUserId = call.request.headers[HeaderNames.USER_ID] ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                            return@put
                         }
                         val newUser = usersDataSource.getUserById(newUserId)
                         val result = notesDataSource.updateNoteOwner(
@@ -535,7 +535,7 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/move-to-editors") {
+                    put("/move-to-editors") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val editorUser = usersDataSource.getUserById(session.userId)
@@ -546,7 +546,7 @@ fun Route.noteRoutes(
                         }
                         val userList = call.receiveNullable<UserListsIncomingDto>()?.readers ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                            return@put
                         }
                         val result = notesDataSource.moveUsersToEditors(
                             userIds = userList,
@@ -570,7 +570,7 @@ fun Route.noteRoutes(
 
                     }
 
-                    post("/move-to-readers") {
+                    put("/move-to-readers") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val editorUser = usersDataSource.getUserById(session.userId)
@@ -582,7 +582,7 @@ fun Route.noteRoutes(
                         }
                         val usersList = call.receiveNullable<UserListsIncomingDto>()?.editors ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                            return@put
                         }
                         val note = notesDataSource.getNoteById(noteId, session.userId)
                         val usersToMove = note.sharedEditorUserIds.intersect(usersList)
@@ -611,13 +611,13 @@ fun Route.noteRoutes(
 
                 route("/protection") {
 
-                    post("/add") {
+                    put("/add") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val user = usersDataSource.getUserById(session.userId)
                         if (user.protectedNoteIds.contains(noteId)) {
                             call.respond(ApiResponseDto.Success(Unit))
-                            return@post
+                            return@put
                         }
                         val result = usersDataSource.addNoteToProtected(session.userId, noteId)
                         if (result) {
@@ -632,13 +632,13 @@ fun Route.noteRoutes(
                         )
                     }
 
-                    post("/remove") {
+                    put("/remove") {
                         val session = call.sessions.get<AuthSession>()!!
                         val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                         val user = usersDataSource.getUserById(session.userId)
                         if (!user.protectedNoteIds.contains(noteId)) {
                             call.respond(ApiResponseDto.Success(Unit))
-                            return@post
+                            return@put
                         }
                         val notePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
                         if (notePassword != user.protectedNotePassword)
@@ -661,6 +661,28 @@ fun Route.noteRoutes(
 
                 }
 
+            }
+
+            delete {
+                val session = call.sessions.get<AuthSession>()!!
+                val noteIdsToDelete = call.receiveNullable<List<String>>() ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@delete
+                }
+                val foundedNotesToDelete = notesDataSource.getNotesById(noteIdsToDelete.toSet(), session.userId)
+                val userOwnedNoteIds = foundedNotesToDelete.asSequence()
+                    .filter { it.creatorId == session.userId }
+                    .map { it.id }
+                    .toSet()
+                noteResourcesDataSource.deleteResourceForNotes(userOwnedNoteIds, session.userId)
+                val result = notesDataSource.deleteNotesForUser(
+                    userId = session.userId,
+                    noteIds = noteIdsToDelete.toSet()
+                )
+                call.respond(
+                    if (result) ApiResponseDto.Success(Unit)
+                    else ApiResponseDto.Error()
+                )
             }
 
         }

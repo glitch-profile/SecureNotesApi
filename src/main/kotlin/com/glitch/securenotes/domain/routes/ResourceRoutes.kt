@@ -37,14 +37,8 @@ fun Route.resourceRoutes(
 
     get("/api/V1/resource-file/{${HeaderNames.NOTE_ID}}/{${HeaderNames.FILE_PATH}}") {
         val session = call.sessions.get<AuthSession>()!!
-        val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@get
-        }
-        val filePath = call.queryParameters[HeaderNames.FILE_PATH] ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@get
-        }
+        val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+        val filePath = call.queryParameters[HeaderNames.FILE_PATH]!!
         val user = usersDataSource.getUserById(session.userId)
         if (user.protectedNoteIds.contains(noteId)) {
             val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -75,12 +69,24 @@ fun Route.resourceRoutes(
 
         authenticate(AuthenticationLevel.USER) {
 
+            get {
+                val session = call.sessions.get<AuthSession>()!!
+                val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                val user = usersDataSource.getUserById(session.userId)
+                if (user.protectedNoteIds.contains(noteId)) {
+                    val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+                    if (user.protectedNotePassword != protectedNotePassword)
+                        throw IncorrectSecuredNotesPasswordException()
+                }
+                val resourcesForNote = noteResourcesDataSource.getResourcesForNote(noteId, user.id)
+                call.respond(
+                    ApiResponseDto.Success(resourcesForNote)
+                )
+            }
+
             post("/add") {
                 val session = call.sessions.get<AuthSession>()!!
-                val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                    call.respond(HttpStatusCode.BadRequest)
-                    return@post
-                }
+                val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                 val contentLength = call.request.header(HttpHeaders.ContentLength)?.toLong() ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@post
@@ -183,14 +189,8 @@ fun Route.resourceRoutes(
 
                 get {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
-                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
                         val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -209,14 +209,8 @@ fun Route.resourceRoutes(
 
                 get("/download") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
-                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@get
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
                         val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -248,16 +242,10 @@ fun Route.resourceRoutes(
                     call.respondBytes(decryptedFileBytes)
                 }
 
-                post("update-title") {
+                put("update-title") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
-                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val newResourceTitle = call.receiveText()
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
@@ -277,16 +265,10 @@ fun Route.resourceRoutes(
                     )
                 }
 
-                post("update-description") {
+                put("update-description") {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
-                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val newResourceDescription = call.receiveText()
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
@@ -308,14 +290,8 @@ fun Route.resourceRoutes(
 
                 delete {
                     val session = call.sessions.get<AuthSession>()!!
-                    val noteId = call.pathParameters[HeaderNames.NOTE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@delete
-                    }
-                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID] ?: kotlin.run {
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@delete
-                    }
+                    val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                    val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val user = usersDataSource.getUserById(session.userId)
                     if (user.protectedNoteIds.contains(noteId)) {
                         val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
@@ -333,6 +309,30 @@ fun Route.resourceRoutes(
                     )
                 }
 
+            }
+
+            delete {
+                val session = call.sessions.get<AuthSession>()!!
+                val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
+                val user = usersDataSource.getUserById(session.userId)
+                if (user.protectedNoteIds.contains(noteId)) {
+                    val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+                    if (user.protectedNotePassword != protectedNotePassword)
+                        throw IncorrectSecuredNotesPasswordException()
+                }
+                val resourceIdsToDelete = call.receiveNullable<List<String>>() ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@delete
+                }
+                val result = noteResourcesDataSource.deleteResourceByIds(
+                    noteId = noteId,
+                    editorUserId = session.userId,
+                    resourceIds = resourceIdsToDelete.toSet()
+                )
+                call.respond(
+                    if (result) ApiResponseDto.Success(Unit)
+                    else ApiResponseDto.Error()
+                )
             }
 
         }
