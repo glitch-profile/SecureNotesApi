@@ -247,16 +247,16 @@ fun Route.resourceRoutes(
                     val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val newResourceTitle = call.receiveText()
-                    val user = usersDataSource.getUserById(session.userId)
-                    if (user.protectedNoteIds.contains(noteId)) {
-                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
-                        if (user.protectedNotePassword != protectedNotePassword)
-                            throw IncorrectSecuredNotesPasswordException()
-                    }
+//                    val user = usersDataSource.getUserById(session.userId)
+//                    if (user.protectedNoteIds.contains(noteId)) {
+//                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+//                        if (user.protectedNotePassword != protectedNotePassword)
+//                            throw IncorrectSecuredNotesPasswordException()
+//                    }
                     val result = noteResourcesDataSource.updateResourceTitle(
                         noteId = noteId,
                         resourceId = resourceId,
-                        editorUserId = user.id,
+                        editorUserId = session.userId,
                         newTitle = newResourceTitle
                     )
                     call.respond(
@@ -270,16 +270,16 @@ fun Route.resourceRoutes(
                     val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
                     val newResourceDescription = call.receiveText()
-                    val user = usersDataSource.getUserById(session.userId)
-                    if (user.protectedNoteIds.contains(noteId)) {
-                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
-                        if (user.protectedNotePassword != protectedNotePassword)
-                            throw IncorrectSecuredNotesPasswordException()
-                    }
+//                    val user = usersDataSource.getUserById(session.userId)
+//                    if (user.protectedNoteIds.contains(noteId)) {
+//                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+//                        if (user.protectedNotePassword != protectedNotePassword)
+//                            throw IncorrectSecuredNotesPasswordException()
+//                    }
                     val result = noteResourcesDataSource.updateResourceDescription(
                         noteId = noteId,
                         resourceId = resourceId,
-                        editorUserId = user.id,
+                        editorUserId = session.userId,
                         newDescription = newResourceDescription
                     )
                     call.respond(
@@ -292,15 +292,15 @@ fun Route.resourceRoutes(
                     val session = call.sessions.get<AuthSession>()!!
                     val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
                     val resourceId = call.pathParameters[HeaderNames.RESOURCE_ID]!!
-                    val user = usersDataSource.getUserById(session.userId)
-                    if (user.protectedNoteIds.contains(noteId)) {
-                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
-                        if (user.protectedNotePassword != protectedNotePassword)
-                            throw IncorrectSecuredNotesPasswordException()
-                    }
+//                    val user = usersDataSource.getUserById(session.userId)
+//                    if (user.protectedNoteIds.contains(noteId)) {
+//                        val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+//                        if (user.protectedNotePassword != protectedNotePassword)
+//                            throw IncorrectSecuredNotesPasswordException()
+//                    }
                     val result = noteResourcesDataSource.deleteResourceById(
                         noteId = noteId,
-                        editorUserId = user.id,
+                        editorUserId = session.userId,
                         resourceId = resourceId
                     )
                     call.respond(
@@ -314,12 +314,12 @@ fun Route.resourceRoutes(
             delete {
                 val session = call.sessions.get<AuthSession>()!!
                 val noteId = call.pathParameters[HeaderNames.NOTE_ID]!!
-                val user = usersDataSource.getUserById(session.userId)
-                if (user.protectedNoteIds.contains(noteId)) {
-                    val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
-                    if (user.protectedNotePassword != protectedNotePassword)
-                        throw IncorrectSecuredNotesPasswordException()
-                }
+//                val user = usersDataSource.getUserById(session.userId)
+//                if (user.protectedNoteIds.contains(noteId)) {
+//                    val protectedNotePassword = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+//                    if (user.protectedNotePassword != protectedNotePassword)
+//                        throw IncorrectSecuredNotesPasswordException()
+//                }
                 val resourceIdsToDelete = call.receiveNullable<List<String>>() ?: kotlin.run {
                     call.respond(HttpStatusCode.BadRequest)
                     return@delete
