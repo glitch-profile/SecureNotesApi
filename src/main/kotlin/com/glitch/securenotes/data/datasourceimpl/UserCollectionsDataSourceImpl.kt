@@ -17,8 +17,6 @@ class UserCollectionsDataSourceImpl(
     private val collections = db.getCollection<UserCollectionModel>("UserCollections")
 
     // GET
-
-    // TODO: Rework this method
     override suspend fun getCollectionById(collectionId: String, userId: String): UserCollectionModel {
         if (cache.isCollectionInfoSaved(userId, collectionId)) {
             return cache.getCollectionById(collectionId, userId)!!
@@ -73,7 +71,7 @@ class UserCollectionsDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            cache.updateCollection(userId, result)
+            cache.updateCollection(userId, decryptCollection(result))
         }
         return result != null
     }
@@ -92,7 +90,7 @@ class UserCollectionsDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            cache.updateCollection(userId, result)
+            cache.updateCollection(userId, decryptCollection(result))
         }
         return result != null
     }
@@ -106,7 +104,7 @@ class UserCollectionsDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            cache.updateCollection(userId, result)
+            cache.updateCollection(userId, decryptCollection(result))
         }
         return result != null
     }
@@ -120,7 +118,7 @@ class UserCollectionsDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            cache.updateCollection(userId, result)
+            cache.updateCollection(userId, decryptCollection(result))
         }
         return result != null
     }
@@ -134,7 +132,7 @@ class UserCollectionsDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            cache.updateCollection(userId, result)
+            cache.updateCollection(userId, decryptCollection(result))
         }
         return result != null
     }
@@ -152,7 +150,7 @@ class UserCollectionsDataSourceImpl(
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
-            cache.updateCollection(userId, result)
+            cache.updateCollection(userId, decryptCollection(result))
         }
         return result != null
     }
