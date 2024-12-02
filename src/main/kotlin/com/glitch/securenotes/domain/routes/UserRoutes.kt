@@ -154,6 +154,23 @@ fun Route.userRoutes(
                 call.respond(ApiResponseDto.Success(result))
             }
 
+            get {
+                val session = call.sessions.get<AuthSession>()!!
+                val userIds = call.receiveNullable<List<String>>()?.take(100) ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@get
+                }
+                val result = usersDataSource.getUsersByIds(userIds).map {
+                    UserInfoDto(
+                        id = it .id,
+                        username = it.username,
+                        profileImage = it.profileAvatar,
+                        accountCreationTimestamp = if (it.id == session.userId) it.creationDate else null
+                    )
+                }
+                call.respond(ApiResponseDto.Success(result))
+            }
+
             // TODO: Rework returned user model
             get("/{${HeaderNames.USER_ID}}") {
                 val session = call.sessions.get<AuthSession>()!!

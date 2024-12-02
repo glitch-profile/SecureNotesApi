@@ -69,6 +69,26 @@ fun Route.noteRoutes(
 
             get {
                 val session = call.sessions.get<AuthSession>()!!
+                var noteIds = call.receiveNullable<List<String>>()?.take(100) ?: kotlin.run {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@get
+                }
+                val user = usersDataSource.getUserById(session.userId)
+                if (user.protectedNoteIds.any { noteIds.contains(it) }) {
+                    val protectedCode = call.request.headers[HeaderNames.SECURE_NOTES_PASSWORD]
+                    if (user.protectedNotePassword !== protectedCode)
+                        noteIds = noteIds.toMutableList().apply {
+                            removeAll(user.protectedNoteIds)
+                        }.toList()
+                }
+                val result = notesDataSource.getNotesById(noteIds.toSet(), session.userId).map {
+                    it.toCompactInfo(session.userId)
+                }
+                call.respond(ApiResponseDto.Success(result))
+            }
+
+            get("/all") {
+                val session = call.sessions.get<AuthSession>()!!
                 val user = usersDataSource.getUserById(session.userId)
                 val pagingOffset = call.queryParameters[HeaderNames.PAGING_PAGE]?.toIntOrNull() ?: 0
                 val pagingLimit = call.queryParameters[HeaderNames.PAGING_LIMIT]?.toIntOrNull() ?: -1
@@ -83,7 +103,7 @@ fun Route.noteRoutes(
                     limit = pagingLimit,
                     excludedNotesId = excludedNoteIds
                 )
-                val notesCompactInfo = notes.map { it.toCompactInfo(user.id) }
+                val notesCompactInfo = notes.map { it.toCompactInfo(session.userId) }
                 call.respond(notesCompactInfo)
             }
 
