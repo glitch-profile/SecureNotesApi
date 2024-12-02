@@ -557,12 +557,12 @@ fun Route.noteRoutes(
 //                            if (protectedNotesPasswords != editorUser.protectedNotePassword)
 //                                throw IncorrectSecuredNotesPasswordException()
 //                        }
-                        val userList = call.receiveNullable<UserListsIncomingDto>()?.readers ?: kotlin.run {
+                        val userList = call.receiveNullable<List<String>>()?.take(100) ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
                             return@put
                         }
                         val result = notesDataSource.moveUsersToEditors(
-                            userIds = userList,
+                            userIds = userList.toSet(),
                             noteId = noteId,
                             requestedUserId = session.userId
                         )
@@ -593,12 +593,12 @@ fun Route.noteRoutes(
 //                                throw IncorrectSecuredNotesPasswordException()
 //                            }
 //                        }
-                        val usersList = call.receiveNullable<UserListsIncomingDto>()?.editors ?: kotlin.run {
+                        val usersList = call.receiveNullable<List<String>>()?.take(100) ?: kotlin.run {
                             call.respond(HttpStatusCode.BadRequest)
                             return@put
                         }
                         val note = notesDataSource.getNoteById(noteId, session.userId)
-                        val usersToMove = note.sharedEditorUserIds.intersect(usersList)
+                        val usersToMove = note.sharedEditorUserIds.intersect(usersList.toSet())
                         val result = notesDataSource.moveUsersToReaders(
                             noteId = note.id,
                             requestedUserId = session.userId,
