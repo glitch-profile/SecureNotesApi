@@ -12,5 +12,5 @@ data class UserCollectionModel(
     val title: String,
     val description: String? = null,
     val userId: String,
-    val assignedNotes: List<String> = emptyList()
+    val assignedNotes: Set<String> = emptySet()
 )

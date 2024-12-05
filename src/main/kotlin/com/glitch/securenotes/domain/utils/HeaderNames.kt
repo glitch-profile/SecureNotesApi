@@ -23,4 +23,7 @@ object HeaderNames {
     const val RESOURCE_ID = "res_id"
     const val FILE_PATH = "file_path"
 
+    //notes collections
+    const val COLLECTION_ID = "collection_id"
+
 }

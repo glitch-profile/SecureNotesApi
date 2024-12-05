@@ -26,7 +26,7 @@ class UserCollectionsDataSourceImpl(
         }
     }
 
-    override suspend fun getCollectionsByIds(collectionsIds: List<String>, userId: String): List<UserCollectionModel> {
+    override suspend fun getCollectionsByIds(collectionsIds: Set<String>, userId: String): List<UserCollectionModel> {
         val foundedCollections = getCollectionForUser(userId)
         return foundedCollections.filter { collectionsIds.contains(it.id) }
     }
@@ -47,11 +47,29 @@ class UserCollectionsDataSourceImpl(
 
     // CREATE
 
-    override suspend fun addCollection(title: String, description: String, userId: String): UserCollectionModel {
+    override suspend fun addCollection(title: String, description: String?, userId: String): UserCollectionModel {
         val collection = UserCollectionModel(
             title = title,
             description = description,
             userId = userId
+        )
+        val encryptedCollection = encryptCollection(collection)
+        cache.addCollectionForUser(userId, collection)
+        collections.insertOne(encryptedCollection)
+        return collection
+    }
+
+    override suspend fun addCollection(
+        title: String,
+        description: String?,
+        assignedNoteIds: Set<String>,
+        userId: String
+    ): UserCollectionModel {
+        val collection = UserCollectionModel(
+            title = title,
+            description = description,
+            userId = userId,
+            assignedNotes = assignedNoteIds
         )
         val encryptedCollection = encryptCollection(collection)
         cache.addCollectionForUser(userId, collection)
@@ -109,12 +127,12 @@ class UserCollectionsDataSourceImpl(
         return result != null
     }
 
-    override suspend fun addNotesToCollection(collectionId: String, userId: String, noteIds: List<String>): Boolean {
+    override suspend fun addNotesToCollection(collectionId: String, userId: String, noteIds: Set<String>): Boolean {
         val filter = Filters.and(
             Filters.eq("_id", collectionId),
             Filters.eq(UserCollectionModel::userId.name, userId)
         )
-        val update = Updates.addEachToSet(UserCollectionModel::assignedNotes.name, noteIds)
+        val update = Updates.addEachToSet(UserCollectionModel::assignedNotes.name, noteIds.toList())
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
@@ -140,13 +158,13 @@ class UserCollectionsDataSourceImpl(
     override suspend fun removeNotesFromCollection(
         collectionId: String,
         userId: String,
-        noteIds: List<String>
+        noteIds: Set<String>
     ): Boolean {
         val filter = Filters.and(
             Filters.eq("_id", collectionId),
             Filters.eq(UserCollectionModel::userId.name, userId)
         )
-        val update = Updates.pullAll(UserCollectionModel::assignedNotes.name, noteIds)
+        val update = Updates.pullAll(UserCollectionModel::assignedNotes.name, noteIds.toList())
         val updateOptions = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
         val result = collections.findOneAndUpdate(filter, update, updateOptions)
         if (result != null) {
@@ -167,8 +185,8 @@ class UserCollectionsDataSourceImpl(
         return result.deletedCount != 0L
     }
 
-    override suspend fun deleteCollectionByIds(collectionIds: List<String>, userId: String): Boolean {
-        cache.deleteCollectionsByIds(userId, collectionIds)
+    override suspend fun deleteCollectionByIds(collectionIds: Set<String>, userId: String): Boolean {
+        cache.deleteCollectionsByIds(userId, collectionIds.toList())
         val filter = Filters.and(
             Filters.`in`("_id", collectionIds),
             Filters.eq(UserCollectionModel::userId.name, userId)

@@ -46,6 +46,7 @@ fun Application.configureRouting() {
         userRoutes(
             usersDataSource = usersDataSource,
             userCredentialsDataSource = userCredentialsDataSource,
+            noteCollectionsDataSource = userCollectionsDataSource,
             authSessionStorage = authSessionManager,
             fileManager = fileManager,
             notesDataSource = notesDataSource,
@@ -57,6 +58,10 @@ fun Application.configureRouting() {
             notesDataSource = notesDataSource,
             noteResourcesDataSource = noteResourcesDataSource,
             notesRoomController = notesRoomController
+        )
+        collectionRoutes(
+            notesDataSource = notesDataSource,
+            collectionsDataSource = userCollectionsDataSource
         )
         resourceRoutes(
             usersDataSource = usersDataSource,
