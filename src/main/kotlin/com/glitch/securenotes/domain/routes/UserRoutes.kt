@@ -2,6 +2,7 @@ package com.glitch.securenotes.domain.routes
 
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.AuthSessionStorage
+import com.glitch.securenotes.data.datasource.UserCollectionsDataSource
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.datasource.UsersDataSource
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
@@ -39,6 +40,7 @@ fun Route.userRoutes(
     userCredentialsDataSource: UserCredentialsDataSource,
     notesDataSource: NotesDataSource,
     noteResourcesDataSource: NoteResourcesDataSource,
+    noteCollectionsDataSource: UserCollectionsDataSource,
     authSessionStorage: AuthSessionStorage,
     fileManager: FileManager,
     imageProcessor: ImageProcessor
@@ -300,6 +302,7 @@ fun Route.userRoutes(
                     .asSequence()
                     .filter { it.creatorId == userId }
                     .map { it.id }
+                noteCollectionsDataSource.deleteCollectionsForUser(userId)
                 noteResourcesDataSource.deleteResourceForNotes(userNotes.toSet(), userId)
                 notesDataSource.deleteAllNotesForUser(userId)
                 val result = usersDataSource.deleteUserById(userId)
@@ -361,6 +364,20 @@ fun Route.userRoutes(
                 }
 
                 post("/destroy") {
+                    val session = call.sessions.get<AuthSession>()!!
+                    val sessionsList = call.receiveNullable<List<String>>() ?: kotlin.run {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@post
+                    }
+                    val user = usersDataSource.getUserById(session.userId)
+                    val sessionsToClose = user.activeSessions.intersect(sessionsList.toSet())
+                    sessionsToClose.forEach { sessionId ->
+                        authSessionStorage.delete(sessionId)
+                    }
+                    call.respond(ApiResponseDto.Success(Unit))
+                }
+
+                post("/destroy-all") {
                     val session = call.sessions.get<AuthSession>()!!
                     val isIncludeClientSession = call.request.queryParameters[HeaderNames.IS_INCLUDE_SELF_SESSION].toBoolean()
                     val userInfo = usersDataSource.getUserById(session.userId)
