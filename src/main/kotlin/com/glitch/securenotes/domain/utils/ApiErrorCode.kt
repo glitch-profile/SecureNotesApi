@@ -3,7 +3,6 @@ package com.glitch.securenotes.domain.utils
 object ApiErrorCode {
     // GENERAL ERROR CODES - 10X
     const val UNKNOWN_ERROR = 101
-    const val NO_PERMISSIONS = 102
     // FILES ERROR CODES - 11X
     const val FILE_EXTENSION_UNKNOWN = 111
     // AUTH ERRORS CODES - 20X
@@ -14,9 +13,13 @@ object ApiErrorCode {
     const val AUTH_SESSION_NOT_FOUND = 205
     // USERS ERROR CODES - 21X
     const val USER_NOT_FOUND = 211
-    const val PROTECTED_NOTES_PASSWORD_INCORRECT = 212
+    const val PROTECTED_NOTES_PASSWORD_NOT_CONFIGURED = 212
+    const val PROTECTED_NOTES_PASSWORD_INCORRECT = 213
     // NOTES ERROR CODES - 22X
     const val NOTE_NOT_FOUND = 221
-    const val NOTE_SHARING_NOT_CONFIGURED = 222
-
+    const val NO_PERMISSIONS_FOR_EDIT = 222
+    const val NOTE_SHARING_NOT_CONFIGURED = 223
+    const val NOTE_RESOURCE_NOT_FOUND = 224
+    // USER COLLECTIONS CODES - 23X
+    const val COLLECTION_NOT_FOUND = 231
 }

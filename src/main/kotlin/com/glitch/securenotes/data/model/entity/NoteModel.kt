@@ -1,6 +1,6 @@
 package com.glitch.securenotes.data.model.entity
 
-import com.glitch.securenotes.data.exceptions.notes.NoPermissionForReadException
+import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
 import com.glitch.securenotes.data.model.dto.notes.NoteCompactInfoDto
 import com.glitch.securenotes.data.model.dto.notes.NoteCompactUpdateInfoDto
 import com.glitch.securenotes.domain.utils.UserRoleCode
@@ -46,7 +46,7 @@ data class NoteModel(
             creatorId -> UserRoleCode.ROLE_OWNER
             in sharedEditorUserIds -> UserRoleCode.ROLE_EDITOR
             in sharedReaderUserIds -> UserRoleCode.ROLE_READER
-            else -> throw NoPermissionForReadException()
+            else -> throw NoteNotFoundException()
         }
         return NoteCompactInfoDto(
             id = id,

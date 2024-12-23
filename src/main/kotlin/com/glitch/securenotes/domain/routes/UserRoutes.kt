@@ -356,8 +356,8 @@ fun Route.userRoutes(
                     } else {
                         call.respond(
                             ApiResponseDto.Error<Unit>(
-                                apiErrorCode = ApiErrorCode.NO_PERMISSIONS,
-                                message = ApiErrorCode::NO_PERMISSIONS.name
+                                apiErrorCode = ApiErrorCode.NO_PERMISSIONS_FOR_EDIT,
+                                message = ApiErrorCode::NO_PERMISSIONS_FOR_EDIT.name
                             )
                         )
                     }

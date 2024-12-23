@@ -5,7 +5,7 @@ import com.glitch.securenotes.data.cache.datacache.NoteResourcesDataCache
 import com.glitch.securenotes.data.datasource.notes.NoteResourcesDataSource
 import com.glitch.securenotes.data.datasource.notes.NotesDataSource
 import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
-import com.glitch.securenotes.data.exceptions.notes.NoPermissionForReadException
+import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
 import com.glitch.securenotes.data.exceptions.resources.ResourceNotFoundException
 import com.glitch.securenotes.data.model.entity.FileModel
 import com.glitch.securenotes.data.model.entity.ResourceModel
@@ -30,10 +30,11 @@ class NoteResourcesDataSourceImpl(
 
     private suspend fun checkUserReadPermission(noteId: String, userId: String) {
         if (!notes.isNoteReadableForUser(noteId, userId))
-            throw NoPermissionForReadException()
+            throw NoteNotFoundException()
     }
 
     private suspend fun checkUserEditPermission(noteId: String, userId: String) {
+        checkUserReadPermission(noteId, userId)
         if (!notes.isNoteEditableForUser(noteId, userId))
             throw NoPermissionForEditException()
     }

@@ -4,7 +4,7 @@ import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
 import com.glitch.securenotes.data.exceptions.auth.IncorrectPasswordException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.exceptions.auth.SessionNotFoundException
-import com.glitch.securenotes.data.exceptions.notes.BaseNoPermissionException
+import com.glitch.securenotes.data.exceptions.notes.NoPermissionForEditException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotConfiguredForSharingException
 import com.glitch.securenotes.data.exceptions.notes.NoteNotFoundException
 import com.glitch.securenotes.data.exceptions.resources.ResourceNotFoundException
@@ -55,9 +55,9 @@ fun Application.configureStatusPages() {
                         message = "note not found"
                     )
                 )
-                is BaseNoPermissionException -> call.respond(
+                is NoPermissionForEditException -> call.respond(
                     ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.NO_PERMISSIONS,
+                        apiErrorCode = ApiErrorCode.NO_PERMISSIONS_FOR_EDIT,
                         message = "no permissions to access this note"
                     )
                 )
@@ -70,15 +70,15 @@ fun Application.configureStatusPages() {
                 // RESOURCE EXCEPTIONS
                 is ResourceNotFoundException -> call.respond(
                     ApiResponseDto.Error<Unit>(
-                        apiErrorCode = TODO(),
+                        apiErrorCode = ApiErrorCode.NOTE_RESOURCE_NOT_FOUND,
                         message = "resource not found"
                     )
                 )
                 // USER COLLECTIONS EXCEPTIONS
                 is CollectionNotFoundException -> call.respond(
                     ApiResponseDto.Error<Unit>(
-                        apiErrorCode = TODO(),
-                        message = "resource not found"
+                        apiErrorCode = ApiErrorCode.COLLECTION_NOT_FOUND,
+                        message = "user collection not found"
                     )
                 )
                 // USERS EXCEPTIONS
@@ -96,7 +96,7 @@ fun Application.configureStatusPages() {
                 )
                 is ProtectedNotesNotConfiguredException -> call.respond(
                     ApiResponseDto.Error<Unit>(
-                        apiErrorCode = TODO(),
+                        apiErrorCode = ApiErrorCode.PROTECTED_NOTES_PASSWORD_NOT_CONFIGURED,
                         message = "protected notes password is not configured"
                     )
                 )
