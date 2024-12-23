@@ -3,7 +3,7 @@ package com.glitch.securenotes.data.datasourceimpl
 import com.glitch.floweryapi.domain.utils.encryptor.AESEncryptor
 import com.glitch.securenotes.data.datasource.UserCredentialsDataSource
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
-import com.glitch.securenotes.data.exceptions.auth.IncorrectCredentialsException
+import com.glitch.securenotes.data.exceptions.auth.IncorrectPasswordException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.model.entity.UserCredentialsModel
 import com.mongodb.client.model.Filters
@@ -51,7 +51,7 @@ class UserCredentialsDataSourceImpl(
         )
         val result = credentials.insertOne(newCredentials)
         if (result.insertedId != null) return newCredentials
-        else throw IncorrectCredentialsException()
+        else throw Exception()
     }
 
     override suspend fun updateCredentials(
@@ -62,13 +62,13 @@ class UserCredentialsDataSourceImpl(
         val filter = Filters.eq(UserCredentialsModel::userId.name, userId)
         val credentialData = credentials.find(filter).singleOrNull() ?: throw CredentialsNotFoundException()
         val currentPasswordDecrypted = AESEncryptor.decrypt(credentialData.password)
-        if (currentPasswordDecrypted != oldPassword) throw IncorrectCredentialsException()
+        if (currentPasswordDecrypted != oldPassword) throw IncorrectPasswordException()
         val newPasswordEncrypted = AESEncryptor.encrypt(newPassword)
         val update = Updates.set(UserCredentialsModel::password.name, newPasswordEncrypted)
         val result = credentials.updateOne(filter, update)
         if (result.modifiedCount != 0L)
             return true
-        else throw IncorrectCredentialsException()
+        else throw IncorrectPasswordException()
     }
 
     override suspend fun deleteCredentials(userId: String): Boolean {

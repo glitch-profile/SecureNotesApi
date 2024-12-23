@@ -8,7 +8,7 @@ object ApiErrorCode {
     const val FILE_EXTENSION_UNKNOWN = 111
     // AUTH ERRORS CODES - 20X
     const val AUTH_DATA_INCORRECT = 201
-    const val INCORRECT_CREDENTIALS = 202
+    const val INCORRECT_PASSWORD_VERIFICATION = 202
     const val CREDENTIALS_ALREADY_IN_USE = 203
     const val AUTH_CODE_NOT_FOUND = 204
     const val AUTH_SESSION_NOT_FOUND = 205

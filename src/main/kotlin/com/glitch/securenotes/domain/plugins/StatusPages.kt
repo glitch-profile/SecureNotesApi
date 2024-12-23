@@ -1,7 +1,7 @@
 package com.glitch.securenotes.domain.plugins
 
 import com.glitch.securenotes.data.exceptions.auth.CredentialsNotFoundException
-import com.glitch.securenotes.data.exceptions.auth.IncorrectCredentialsException
+import com.glitch.securenotes.data.exceptions.auth.IncorrectPasswordException
 import com.glitch.securenotes.data.exceptions.auth.LoginAlreadyInUseException
 import com.glitch.securenotes.data.exceptions.auth.SessionNotFoundException
 import com.glitch.securenotes.data.exceptions.notes.BaseNoPermissionException
@@ -30,10 +30,10 @@ fun Application.configureStatusPages() {
                         message = "credentials not found"
                     )
                 )
-                is IncorrectCredentialsException -> call.respond(
+                is IncorrectPasswordException -> call.respond(
                     ApiResponseDto.Error<Unit>(
-                        apiErrorCode = ApiErrorCode.INCORRECT_CREDENTIALS,
-                        message = "incorrect user credentials"
+                        apiErrorCode = ApiErrorCode.INCORRECT_PASSWORD_VERIFICATION,
+                        message = "incorrect password"
                     )
                 )
                 is LoginAlreadyInUseException -> call.respond(
